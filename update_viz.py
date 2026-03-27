@@ -329,6 +329,24 @@ def generate_html():
     avg_vals = {name: sum(asset_data[name].get(d, {}).get('val', 0) for d in dates)/len(dates) for name in all_asset_names}
     sorted_for_stack = sorted(all_asset_names, key=lambda x: avg_vals[x], reverse=True)
     
+    arrow_data = []
+    for name in sorted_for_stack:
+        for i in range(1, len(dates)):
+            d1 = dates[i-1]
+            d2 = dates[i]
+            prev = asset_data[name].get(d1, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
+            curr = asset_data[name].get(d2, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
+            qty_diff = curr['qty'] - prev['qty']
+            if qty_diff != 0 and prev['val'] > 0 and curr['val'] > 0:
+                trade_val = qty_diff * prev['unit']
+                arrow_data.append({
+                    "name": name,
+                    "d1": d1,
+                    "d2": d2,
+                    "qty_diff": qty_diff,
+                    "trade_val": trade_val
+                })
+    
     for name in sorted_for_stack:
         data_over_time = []
         for d in dates:
