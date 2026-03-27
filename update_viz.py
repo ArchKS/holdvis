@@ -2,8 +2,36 @@ import pandas as pd
 import numpy as np
 import os
 import json
+import config as cfg
+
+def load_config():
+    default_config = {
+        "chartConfig": {
+            "barWidth": "40%",
+            "barGap": "30%",
+            "labelFontSize": 12,
+            "labelThreshold": 0.04,
+            "hideThreshold": 0.01,
+            "heightVh": 200,
+            "liquidationArrowLength": 120,
+            "showLabelDetails": True
+        }
+    }
+    try:
+        if hasattr(cfg, 'CHART_CONFIG'):
+            for k, v in cfg.CHART_CONFIG.items():
+                default_config["chartConfig"][k] = v
+    except Exception as e:
+        print(f"Error loading config.py: {e}. Using defaults.")
+    return default_config
 
 def generate_html():
+    config = load_config()
+    chart_cfg = config['chartConfig']
+    label_threshold = chart_cfg['labelThreshold']
+    hide_threshold = chart_cfg.get('hideThreshold', 0.01)
+    show_details = chart_cfg.get('showLabelDetails', True)
+    
     # Read the CSV file
     try:
         # Use sep=None to detect separator, engine='python'
@@ -337,25 +365,54 @@ def generate_html():
             prev = asset_data[name].get(d1, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
             curr = asset_data[name].get(d2, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
             qty_diff = curr['qty'] - prev['qty']
-            if qty_diff != 0 and prev['val'] > 0 and curr['val'] > 0:
+            
+            # Open position, Liquidation, or Normal change
+            if prev['qty'] == 0 and curr['qty'] > 0:
+                arrow_data.append({
+                    "name": name,
+                    "d1": d1,
+                    "d2": d2,
+                    "qty_diff": curr['qty'],
+                    "trade_val": curr['val'],
+                    "is_new": True,
+                    "is_liquidation": False
+                })
+            elif curr['qty'] == 0 and prev['qty'] > 0:
+                arrow_data.append({
+                    "name": name,
+                    "d1": d1,
+                    "d2": d2,
+                    "qty_diff": -prev['qty'],
+                    "trade_val": -prev['val'],
+                    "is_new": False,
+                    "is_liquidation": True
+                })
+            elif qty_diff != 0 and prev['val'] > 0 and curr['val'] > 0:
                 trade_val = qty_diff * prev['unit']
                 arrow_data.append({
                     "name": name,
                     "d1": d1,
                     "d2": d2,
                     "qty_diff": qty_diff,
-                    "trade_val": trade_val
+                    "trade_val": trade_val,
+                    "is_new": False,
+                    "is_liquidation": False
                 })
-    
+                
     for name in sorted_for_stack:
         data_over_time = []
+        prev_qty = 0
         for d in dates:
             val = round(asset_data[name].get(d, {}).get('val', 0), 1)
             qty = asset_data[name].get(d, {}).get('qty', 0)
             total_day = totals.get(d, 0)
             ratio = val / total_day if total_day > 0 else 0
-            # Hide items < 1% by using None
-            data_over_time.append({"value": val if ratio >= 0.01 else None, "qty": qty, "ratio": ratio})
+            
+            is_new = bool(prev_qty == 0 and qty > 0)
+            prev_qty = qty
+            
+            # Hide items < threshold by using None
+            data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": qty, "ratio": ratio, "is_new": is_new})
             
         if any(item["value"] is not None for item in data_over_time):
             stacked_series.append({
@@ -381,7 +438,7 @@ def generate_html():
         val = round(cash.get(d, 0.0), 1)
         total_day = totals.get(d, 0)
         ratio = val / total_day if total_day > 0 else 0
-        cash_over_time.append({"value": val if ratio >= 0.01 else None, "qty": 0, "ratio": ratio})
+        cash_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": 0, "ratio": ratio, "is_new": False})
         
     stacked_series.append({
         "name": "现金",
@@ -410,7 +467,7 @@ def generate_html():
             h3 {{ color: #3b3126; border-bottom: 1px solid #8c7355; margin-top: 50px; font-size: 1.4em; }}
             .chart-row {{ display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 40px; }}
             .chart-container {{ flex: 1; min-width: 350px; height: 400px; background: transparent; padding: 0; }}
-            .full-width-chart {{ width: 100%; height: 90vh; margin-bottom: 40px; background: transparent; padding: 0; box-sizing: border-box; }}
+            .full-width-chart {{ width: 100%; height: {chart_cfg['heightVh']}vh; margin-bottom: 40px; background: transparent; padding: 0; box-sizing: border-box; }}
             table {{ border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 0.95em; border: 2px solid #3b3126; }}
             th, td {{ border: 1px solid #8c7355; padding: 15px 12px; text-align: left; vertical-align: top; }}
             th {{ background-color: #ede4d3; text-align: center; font-weight: 900; position: sticky; top: 0; z-index: 10; color: #8c2620; border-bottom: 2px solid #3b3126; }}
@@ -489,10 +546,28 @@ def generate_html():
         const marketData = {json.dumps(chart_market_data)};
         const assetData = {json.dumps(chart_asset_data)};
         const stackedSeries = {json.dumps(stacked_series)};
+        const arrowData = {json.dumps(arrow_data)};
+        const arrowLength = {chart_cfg.get('liquidationArrowLength', 120)};
+        const showDetails = {'true' if show_details else 'false'};
 
-        // Stacked Bar Chart
+        let yCenters = {{}};
+        dates.forEach((d, dIdx) => {{
+            let currentY = 0;
+            stackedSeries.forEach(s => {{
+                if (!yCenters[s.name]) yCenters[s.name] = {{}};
+                let item = s.data[dIdx];
+                let val = item && item.value ? item.value : 0;
+                if (val > 0) {{
+                    yCenters[s.name][d] = currentY + val / 2;
+                    currentY += val;
+                }}
+            }});
+        }});
+
+        // 1. Initial Render without markLines
         const stackChart = echarts.init(document.getElementById('stackChart'));
-        stackChart.setOption({{
+        
+        let stackOption = {{
             title: {{ text: '各标的市值随时间的长期变化 (堆积柱状图)', left: 'center', textStyle: {{ color: '#8c2620', fontSize: 20 }} }},
             tooltip: {{ 
                 trigger: 'item',
@@ -507,36 +582,182 @@ def generate_html():
                 }}
             }},
             legend: {{ top: 35, type: 'scroll', textStyle: {{ color: '#3b3126', fontWeight: 600 }} }},
-            grid: {{ left: '3%', right: '4%', bottom: '3%', containLabel: true }},
+            grid: {{ left: '3%', right: '4%', bottom: '10%', containLabel: true }},
+            dataZoom: [
+                {{
+                    type: 'slider',
+                    show: true,
+                    xAxisIndex: [0],
+                    start: 0,
+                    end: 100, // Default show all, user can zoom
+                    bottom: 15,
+                    borderColor: '#8c7355',
+                    fillerColor: 'rgba(140, 38, 32, 0.2)',
+                    textStyle: {{ color: '#3b3126' }}
+                }},
+                {{
+                    type: 'inside',
+                    xAxisIndex: [0],
+                    start: 0,
+                    end: 100
+                }}
+            ],
             xAxis: [{{ type: 'category', data: dates, axisLine: {{ lineStyle: {{ color: '#8c7355', width: 2 }} }}, axisLabel: {{ color: '#3b3126', fontWeight: 600 }} }}],
             yAxis: [{{ type: 'value', name: '市值 (万)', nameTextStyle: {{ color: '#3b3126', fontWeight: 600 }}, axisLine: {{ show: true, lineStyle: {{ color: '#8c7355', width: 2 }} }}, splitLine: {{ lineStyle: {{ type: 'dashed', color: '#d4c2a5' }} }}, axisLabel: {{ color: '#3b3126', fontWeight: 600 }} }}],
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
             series: stackedSeries.map(s => {{
-                s.itemStyle = {{ borderColor: '#fffcf5', borderWidth: 1 }};
+                s.barWidth = '{chart_cfg['barWidth']}';
+                s.barGap = '{chart_cfg['barGap']}';
+                
+                s.data = s.data.map(item => {{
+                    if (item) {{
+                        return {{
+                            ...item,
+                            itemStyle: {{ borderColor: '#fffcf5', borderWidth: 1 }}
+                        }};
+                    }}
+                    return item;
+                }});
+
                 if (s.name !== "现金") {{
                     s.label.formatter = function(params) {{
                         if (!params.data || !params.data.value) return '';
-                        // 如果占比低于4%，只展示名称
-                        if (params.data.ratio < 0.04) return params.seriesName;
-                        let qty = params.data.qty;
                         let ratio = (params.data.ratio * 100).toFixed(1) + '%';
+                        if (params.data.ratio < {label_threshold}) return params.seriesName;
+                        if (!showDetails) return params.seriesName + ' (' + ratio + ')';
+                        let qty = params.data.qty;
                         return params.seriesName + ' (' + ratio + ')\\n' + params.data.value + '万 | ' + qty + '股';
                     }};
                     s.label.rich = {{}};
+                    s.label.fontSize = {chart_cfg['labelFontSize']};
                 }} else {{
                     s.label.formatter = function(params) {{
                         if (!params.data || !params.data.value) return '';
-                        // 如果占比低于4%，只展示名称
-                        if (params.data.ratio < 0.04) return params.seriesName;
                         let ratio = (params.data.ratio * 100).toFixed(1) + '%';
+                        if (params.data.ratio < {label_threshold}) return params.seriesName;
+                        if (!showDetails) return params.seriesName + ' (' + ratio + ')';
                         return params.seriesName + ' (' + ratio + ')\\n' + params.data.value + '万';
                     }};
+                    s.label.fontSize = {chart_cfg['labelFontSize']};
                 }}
                 return s;
             }})
+        }};
+        
+        // 2. Add MarkLines right into stackOption
+        let markLineData = [];
+        let markPointData = [];
+        // SVG path for a blocky arrow pointing right, colored dynamically
+        const rightArrowPath = 'path://M0,4 L12,4 L12,0 L24,8 L12,16 L12,12 L0,12 Z';
+
+        arrowData.forEach(arr => {{
+            let d1Index = dates.indexOf(arr.d1);
+            let d2Index = dates.indexOf(arr.d2);
+            let y1 = yCenters[arr.name] && yCenters[arr.name][arr.d1];
+            let y2 = yCenters[arr.name] && yCenters[arr.name][arr.d2];
+
+            if (arr.is_new) {{
+                // Point from left edge into the bar
+                if (y2 !== undefined) {{
+                    markPointData.push({{
+                        coord: [d2Index, y2],
+                        symbol: rightArrowPath,
+                        symbolSize: [36, 20],
+                        symbolOffset: [-45, 0], // offset left
+                        itemStyle: {{ color: '#a43a3a' }},
+                        label: {{
+                            show: true,
+                            position: 'top',
+                            formatter: '建',
+                            color: '#a43a3a',
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            distance: 2
+                        }}
+                    }});
+                }}
+            }} else if (arr.is_liquidation) {{
+                // Point from the right edge out of the d1 bar
+                if (y1 !== undefined) {{
+                    markPointData.push({{
+                        coord: [d1Index, y1],
+                        symbol: rightArrowPath,
+                        symbolSize: [36, 20],
+                        symbolOffset: [45, 0], // offset right
+                        itemStyle: {{ color: '#a43a3a' }},
+                        label: {{
+                            show: true,
+                            position: 'top',
+                            formatter: '清',
+                            color: '#a43a3a',
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            distance: 2
+                        }}
+                    }});
+                }}
+            }} else {{
+                // Normal add / reduce -> dashed line
+                if (y1 !== undefined && y2 !== undefined) {{
+                    let d2Val = arr.d2;
+                    let y2Val = y2;
+                    let labelPos = 'middle';
+
+                    let action = arr.qty_diff > 0 ? "加仓" : "减仓";
+                    let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1) + "万";
+                    let labelText = action + " " + Math.abs(arr.qty_diff) + "股\\n" + tradeValStr;
+                    
+                    let lineColor = arr.qty_diff > 0 ? "#a43a3a" : "#4b6a53";
+                    let bgColor = "rgba(255, 252, 245, 0.95)";
+                    let textColor = lineColor;
+                    let borderColor = lineColor;
+                    
+                    markLineData.push([
+                        {{
+                            coord: [arr.d1, y1],
+                            lineStyle: {{ color: lineColor, width: 2, type: 'dashed' }}
+                        }},
+                        {{
+                            coord: [d2Val, y2Val],
+                            value: labelText,
+                            label: {{ 
+                                show: true, 
+                                position: labelPos, 
+                                formatter: '{{c}}', 
+                                backgroundColor: bgColor, 
+                                borderColor: borderColor,
+                                borderWidth: 1,
+                                padding: [4, 6], 
+                                borderRadius: 4, 
+                                color: textColor,
+                                fontWeight: 'bold',
+                                fontSize: 12,
+                                lineHeight: 16
+                            }}
+                        }}
+                    ]);
+                }}
+            }}
         }});
 
-        // Trend Chart
+        if (markLineData.length > 0 && stackedSeries.length > 0) {{
+            stackOption.series[0].markLine = {{
+                symbol: ['none', 'arrow'],
+                symbolSize: [10, 15],
+                animation: true,
+                data: markLineData
+            }};
+        }}
+        
+        if (markPointData.length > 0 && stackedSeries.length > 0) {{
+            stackOption.series[0].markPoint = {{
+                data: markPointData,
+                animation: true
+            }};
+        }}
+
+        stackChart.setOption(stackOption);
+
         const trendChart = echarts.init(document.getElementById('trendChart'));
         trendChart.setOption({{
             title: {{ text: '资产总值变化', left: 'center', textStyle: {{ color: '#8c2620' }} }},
