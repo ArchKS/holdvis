@@ -351,14 +351,59 @@ def generate_html():
         chart_asset_data.append({"name": "现金", "value": round(latest_cash, 1)})
         chart_asset_data = sorted(chart_asset_data, key=lambda x: x['value'], reverse=True)
     
-    # Prepare Stacked Bar Data (Top Assets over time)
-    stacked_series = []
-    # Sort names by average value to put largest on bottom
-    avg_vals = {name: sum(asset_data[name].get(d, {}).get('val', 0) for d in dates)/len(dates) for name in all_asset_names}
-    sorted_for_stack = sorted(all_asset_names, key=lambda x: avg_vals[x], reverse=True)
+    # Prepare Stacked Bar Data
+    all_series_data = []
     
+    # Calculate average values including cash
+    all_items_to_sort = []
+    for name in all_asset_names:
+        avg = sum(asset_data[name].get(d, {}).get('val', 0) for d in dates) / len(dates)
+        all_items_to_sort.append({'name': name, 'avg': avg, 'is_cash': False})
+    
+    avg_cash = sum(cash.get(d, 0) for d in dates) / len(dates)
+    all_items_to_sort.append({'name': '现金', 'avg': avg_cash, 'is_cash': True})
+    
+    # Sort: Largest average value at the bottom (first in the series list)
+    sorted_items = sorted(all_items_to_sort, key=lambda x: x['avg'], reverse=True)
+    
+    stacked_series = []
+    for item in sorted_items:
+        name = item['name']
+        data_over_time = []
+        
+        if item['is_cash']:
+            for d in dates:
+                val = round(cash.get(d, 0.0), 1)
+                total_day = totals.get(d, 0)
+                ratio = val / total_day if total_day > 0 else 0
+                data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": 0, "ratio": ratio, "is_new": False})
+        else:
+            prev_qty = 0
+            for d in dates:
+                val = round(asset_data[name].get(d, {}).get('val', 0), 1)
+                qty = asset_data[name].get(d, {}).get('qty', 0)
+                total_day = totals.get(d, 0)
+                ratio = val / total_day if total_day > 0 else 0
+                is_new = bool(prev_qty == 0 and qty > 0)
+                prev_qty = qty
+                data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": qty, "ratio": ratio, "is_new": is_new})
+            
+        if any(i["value"] is not None for i in data_over_time):
+            s_obj = {
+                "name": name,
+                "type": "bar",
+                "stack": "Total",
+                "emphasis": {"focus": "series"},
+                "label": {"show": True},
+                "data": data_over_time
+            }
+            if not item['is_cash']:
+                s_obj["label"]["rich"] = {"qty": {"fontSize": 11, "color": "#eee"}}
+            stacked_series.append(s_obj)
+
     arrow_data = []
-    for name in sorted_for_stack:
+    # Use the names from asset_data for arrow calculations
+    for name in all_asset_names:
         for i in range(1, len(dates)):
             d1 = dates[i-1]
             d2 = dates[i]
@@ -398,58 +443,6 @@ def generate_html():
                     "is_new": False,
                     "is_liquidation": False
                 })
-                
-    for name in sorted_for_stack:
-        data_over_time = []
-        prev_qty = 0
-        for d in dates:
-            val = round(asset_data[name].get(d, {}).get('val', 0), 1)
-            qty = asset_data[name].get(d, {}).get('qty', 0)
-            total_day = totals.get(d, 0)
-            ratio = val / total_day if total_day > 0 else 0
-            
-            is_new = bool(prev_qty == 0 and qty > 0)
-            prev_qty = qty
-            
-            # Hide items < threshold by using None
-            data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": qty, "ratio": ratio, "is_new": is_new})
-            
-        if any(item["value"] is not None for item in data_over_time):
-            stacked_series.append({
-                "name": name,
-                "type": "bar",
-                "stack": "Total",
-                "emphasis": {"focus": "series"},
-                "label": {
-                    "show": True,
-                    "rich": {
-                        "qty": {
-                            "fontSize": 11,
-                            "color": "#eee"
-                        }
-                    }
-                },
-                "data": data_over_time
-            })
-            
-    # Add Cash to stacked
-    cash_over_time = []
-    for d in dates:
-        val = round(cash.get(d, 0.0), 1)
-        total_day = totals.get(d, 0)
-        ratio = val / total_day if total_day > 0 else 0
-        cash_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": 0, "ratio": ratio, "is_new": False})
-        
-    stacked_series.append({
-        "name": "现金",
-        "type": "bar",
-        "stack": "Total",
-        "emphasis": {"focus": "series"},
-        "label": {
-            "show": True
-        },
-        "data": cash_over_time
-    })
 
     full_html = f"""
     <!DOCTYPE html>
@@ -549,6 +542,10 @@ def generate_html():
         const arrowData = {json.dumps(arrow_data)};
         const arrowLength = {chart_cfg.get('liquidationArrowLength', 120)};
         const showDetails = {'true' if show_details else 'false'};
+        
+        // Bar width in categories: e.g. 40% -> 0.4. Bar spans from -0.2 to +0.2 relative to category center
+        const barWidthVal = parseFloat('{chart_cfg['barWidth']}'.replace('%', '')) / 100;
+        const halfBar = barWidthVal / 2;
 
         let yCenters = {{}};
         dates.forEach((d, dIdx) => {{
@@ -568,7 +565,7 @@ def generate_html():
         const stackChart = echarts.init(document.getElementById('stackChart'));
         
         let stackOption = {{
-            title: {{ text: '各标的市值随时间的长期变化 (堆积柱状图)', left: 'center', textStyle: {{ color: '#8c2620', fontSize: 20 }} }},
+            title: {{ text: '调仓可视化', left: 'center', textStyle: {{ color: '#8c2620', fontSize: 20 }} }},
             tooltip: {{ 
                 trigger: 'item',
                 backgroundColor: 'rgba(59, 49, 38, 0.9)',
@@ -670,7 +667,7 @@ def generate_html():
                             position: 'top',
                             formatter: '建',
                             color: '#a43a3a',
-                            fontSize: 14,
+                            fontSize: 12,
                             distance: 1
                         }}
                     }});
@@ -683,13 +680,13 @@ def generate_html():
                         symbol: rightArrowPath,
                         symbolSize: [46, 6],
                         symbolOffset: [70, 0], // offset right
-                        itemStyle: {{ color: '#a43a3a' }},
+                        itemStyle: {{ color: '#4b6a53' }},
                         label: {{
                             show: true,
                             position: 'top',
                             formatter: '清',
-                            color: '#a43a3a',
-                            fontSize: 14,
+                            color: '#4b6a53',
+                            fontSize: 12,
                             distance: 1
                         }}
                     }});

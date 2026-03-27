@@ -33,5 +33,5 @@ CHART_CONFIG = {
 
     # 是否在柱状图中展示详细信息 (股数和市值)
     # True 为展示，False 为仅展示名称和占比
-    "showLabelDetails": True
+    "showLabelDetails": False
 }
