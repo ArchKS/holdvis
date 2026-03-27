@@ -662,17 +662,16 @@ def generate_html():
                     markPointData.push({{
                         coord: [d2Index, y2],
                         symbol: rightArrowPath,
-                        symbolSize: [36, 20],
-                        symbolOffset: [-45, 0], // offset left
+                        symbolSize: [46, 6],
+                        symbolOffset: [-70, 0], // offset left
                         itemStyle: {{ color: '#a43a3a' }},
                         label: {{
                             show: true,
                             position: 'top',
                             formatter: '建',
                             color: '#a43a3a',
-                            fontSize: 18,
-                            fontWeight: 'bold',
-                            distance: 2
+                            fontSize: 14,
+                            distance: 1
                         }}
                     }});
                 }}
@@ -682,17 +681,16 @@ def generate_html():
                     markPointData.push({{
                         coord: [d1Index, y1],
                         symbol: rightArrowPath,
-                        symbolSize: [36, 20],
-                        symbolOffset: [45, 0], // offset right
+                        symbolSize: [46, 6],
+                        symbolOffset: [70, 0], // offset right
                         itemStyle: {{ color: '#a43a3a' }},
                         label: {{
                             show: true,
                             position: 'top',
                             formatter: '清',
                             color: '#a43a3a',
-                            fontSize: 18,
-                            fontWeight: 'bold',
-                            distance: 2
+                            fontSize: 14,
+                            distance: 1
                         }}
                     }});
                 }}
