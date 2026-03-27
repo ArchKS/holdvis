@@ -1,0 +1,533 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>投资组合可视化 - 雕版风</title>
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&display=swap');
+            body { font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #f4eee1; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmNGVlZTEiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDUpIi8+PC9zdmc+'); }
+            .container { max-width: 1400px; margin: 0 auto; background: #fffcf5; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05), 0 4px 15px rgba(0,0,0,0.08); border: 2px solid #8c7355; position: relative; }
+            .container::before { content: ""; position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px; border: 1px solid #d4c2a5; pointer-events: none; }
+            h2, h3 { color: #8c2620; font-weight: 900; text-align: center; border-bottom: 2px solid #8c2620; padding-bottom: 10px; margin-bottom: 30px; letter-spacing: 2px; }
+            h3 { color: #3b3126; border-bottom: 1px solid #8c7355; margin-top: 50px; font-size: 1.4em; }
+            .chart-row { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 40px; }
+            .chart-container { flex: 1; min-width: 350px; height: 400px; background: transparent; padding: 0; }
+            .full-width-chart { width: 100%; height: 90vh; margin-bottom: 40px; background: transparent; padding: 0; box-sizing: border-box; }
+            table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 0.95em; border: 2px solid #3b3126; }
+            th, td { border: 1px solid #8c7355; padding: 15px 12px; text-align: left; vertical-align: top; }
+            th { background-color: #ede4d3; text-align: center; font-weight: 900; position: sticky; top: 0; z-index: 10; color: #8c2620; border-bottom: 2px solid #3b3126; }
+            .asset-name { font-weight: 900; background-color: #f7f1e3; white-space: nowrap; color: #3b3126; border-right: 2px solid #8c7355; }
+            .market { text-align: center; font-size: 0.9em; color: #8c2620; width: 40px; font-weight: 600; }
+            .positive { color: #a43a3a; font-weight: bold; }
+            .negative { color: #4b6a53; font-weight: bold; }
+            .total-row { font-weight: 900; background-color: #ede4d3; border-top: 2px solid #3b3126; color: #8c2620; }
+            .date-header { min-width: 240px; font-family: monospace; font-size: 1.1em; }
+            .cell-val { font-size: 1.2em; font-weight: 900; margin-bottom: 6px; text-align: right; color: #1a1611; }
+            .cell-sub { font-size: 0.85em; color: #5c4e3e; margin-bottom: 8px; text-align: right; border-bottom: 1px dashed #c2ab8c; padding-bottom: 6px; }
+            .cell-details { margin-top: 8px; }
+            .custom-bar-container { width: 100%; font-size: 0.8em; margin-top: 10px; }
+            .custom-bar-row { display: flex; align-items: center; margin-bottom: 6px; height: 16px; }
+            .cb-label { width: 32px; color: #5c4e3e; flex-shrink: 0; font-weight: 600; }
+            .cb-track { flex: 1; height: 8px; background: #e3d9c6; margin: 0 6px; display: flex; position: relative; border: 1px solid #bba382; }
+            .cb-fill { height: 100%; }
+            .cb-left { position: absolute; right: 50%; }
+            .cb-right { position: absolute; left: 50%; }
+            .cb-track::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: #3b3126; }
+            .cb-val { width: 40px; text-align: right; font-weight: 900; flex-shrink: 0; }
+            .summary-info { display: flex; gap: 60px; margin-top: 30px; font-size: 1.1em; }
+            .summary-item ul { list-style: none; padding-left: 0; }
+            .summary-item li { margin-bottom: 12px; border-bottom: 1px dashed #d4c2a5; padding-bottom: 6px; display: flex; justify-content: space-between; }
+            /* Hide ECharts default loading/border */
+            canvas { outline: none; }
+        </style>
+    </head>
+    <body>
+    <div class="container">
+        <h2>投资组合调仓展示 (当前总市值: 250.0万)</h2>
+        
+        <div id="stackChart" class="full-width-chart"></div>
+        
+        <div class="chart-row">
+            <div id="trendChart" class="chart-container"></div>
+            <div id="stepChart" class="chart-container"></div>
+        </div>
+
+        <div class="chart-row">
+            <div id="marketChart" class="chart-container"></div>
+            <div id="assetChart" class="chart-container"></div>
+        </div>
+
+        <h3>调仓历史明细 (多维度拆解)</h3>
+        <div style="overflow-x: auto; max-height: 800px;">
+            <table>
+                <thead>
+                    <tr><th>市场</th><th>资产名称</th><th class="date-header">2026/1/2</th><th class="date-header">2026/3/10</th><th class="date-header">2026/3/21</th><th class="date-header">2026/3/25</th><th class="date-header">2026/3/26</th><th class="date-header">2026/3/27</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="market">CN</td><td class="asset-name">2605C14000</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">8.6万</div><div class="cell-sub">数: 8 | 价: ¥10800.00</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.004778733524482674%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+8.6</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-sub">数: 8 | 价: ¥0.00</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.004778733524482674%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-8.6</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">11.2万</div><div class="cell-sub">数: 8 | 价: ¥14000.00</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.006223466915605343%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+11.2</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">9.6万</div><div class="cell-sub">数: 8 | 价: ¥1.20</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0008890667022293346%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-1.6</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.005334400213376008%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-9.6</span>
+                        </div>
+                        </div></div></td></tr><tr><td class="market">CN</td><td class="asset-name">中矿资源</td><td><div class="cell-val">201.1万</div><div class="cell-sub">数: 25600 | 价: ¥78.55</div></td><td><div class="cell-val">199.5万</div><div class="cell-sub">数: 24900 | 价: ¥80.13</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0030555156170122915%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-5.5</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0021664489147829535%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+3.9</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">112.5万</div><div class="cell-sub">数: 16600 | 价: ¥67.80</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.03695183481140672%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-66.5</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.011391167122313355%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-20.5</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">106.8万</div><div class="cell-sub">数: 16600 | 价: ¥64.32</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0031673001266920055%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-5.7</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">113.2万</div><div class="cell-sub">数: 16600 | 价: ¥68.22</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.003556266808917343%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+6.4</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">120.8万</div><div class="cell-sub">数: 16600 | 价: ¥72.76</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.004223066835589333%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+7.6</span>
+                        </div>
+                        </div></div></td></tr><tr><td class="market">CN</td><td class="asset-name">碳酸锂2612</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">30.0万</div><div class="cell-sub">数: 5 | 价: nan</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.016670000666800026%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+30.0</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.016670000666800026%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-30.0</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td></tr><tr><td class="market">CN</td><td class="asset-name">碳酸锂2701</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">36.0万</div><div class="cell-sub">数: 5 | 价: nan</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.020004000800160033%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+36.0</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">39.3万</div><div class="cell-sub">数: 25000 | 价: ¥15.7</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 100.0%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+179964.0</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 99.99816629992664%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-179960.7</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">40.8万</div><div class="cell-sub">数: 25000 | 价: ¥16.3</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0008335000333400035%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+1.5</span>
+                        </div>
+                        </div></div></td></tr><tr><td class="market">HK</td><td class="asset-name">再鼎医药</td><td><div class="cell-val">4.9万</div><div class="cell-sub">数: 4000 | 价: HK$13.6</div></td><td><div class="cell-val">11.6万</div><div class="cell-sub">数: 8800 | 价: HK$15.1</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0032673201306928053%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+5.9</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.00045564668489253313%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+0.8</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.006445733591162677%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-11.6</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td></tr><tr><td class="market">HK</td><td class="asset-name">天齐锂业</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">29.9万</div><div class="cell-sub">数: 8400 | 价: HK$40.5</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.016614433997910693%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+29.9</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">32.6万</div><div class="cell-sub">数: 8200 | 价: HK$45.0</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.00039558176185501646%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-0.7</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0018958818218670203%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+3.4</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">32.6万</div><div class="cell-sub">数: 8200 | 价: HK$45.0</div></td><td><div class="cell-val">34.1万</div><div class="cell-sub">数: 8200 | 价: HK$47.1</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.000833500033340002%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+1.5</span>
+                        </div>
+                        </div></div></td></tr><tr><td class="market">US</td><td class="asset-name">QQQ 270115 300P.</td><td><div class="cell-val">4.2万</div><div class="cell-sub">数: 2500 | 价: $2.40</div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0023338000933520037%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-4.2</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td></tr><tr><td class="market">US</td><td class="asset-name">SOXS</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">4.9万</div><div class="cell-sub">数: 175 | 价: $40.66</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.002722766775577338%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+4.9</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.002722766775577338%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-4.9</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td></tr><tr><td class="market">US</td><td class="asset-name">SQQQ</td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">15.5万</div><div class="cell-sub">数: 280 | 价: $80.25</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.00861283367784668%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+15.5</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.00861283367784668%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-15.5</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">0.0万</div></td><td><div class="cell-val">0.0万</div></td></tr><tr><td class="market">US</td><td class="asset-name">传奇生物</td><td><div class="cell-val">41.4万</div><div class="cell-sub">数: 2724 | 价: $21.74</div></td><td><div class="cell-val">37.7万</div><div class="cell-sub">数: 2868 | 价: $19.14</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0012161022512872616%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+2.2</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.003272069000192594%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-5.9</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">26.4万</div><div class="cell-sub">数: 2200 | 价: $17.41</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.004879249521064914%; background: #a43a3a;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #a43a3a">-8.8</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0013997840634297671%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-2.5</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">35.4万</div><div class="cell-sub">数: 3000 | 价: $17.09</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">交易</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.005334400213376008%; background: #c07844;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #c07844">+9.6</span>
+                        </div>
+                        
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.0003334000133359985%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-0.6</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">36.5万</div><div class="cell-sub">数: 3000 | 价: $17.60</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-right" style="width: 0.0006112333577826669%; background: #4b6a53;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #4b6a53">+1.1</span>
+                        </div>
+                        </div></div></td><td><div class="cell-val">36.3万</div><div class="cell-sub">数: 3000 | 价: $17.49</div><div class="cell-details"><div class="custom-bar-container">
+                        <div class="custom-bar-row">
+                            <span class="cb-label">市场</span>
+                            <div class="cb-track">
+                                <div class="cb-fill cb-left" style="width: 0.00011113333777866617%; background: #667863;"></div>
+                            </div>
+                            <span class="cb-val" style="color: #667863">-0.2</span>
+                        </div>
+                        </div></div></td></tr><tr><td class="market">-</td><td class="asset-name">现金</td><td><div class="cell-val">1.7万</div></td><td><div class="cell-val">0.0万</div><div class="cell-details"><div class="cell-action negative">[变动] -1.7万</div></div></td><td><div class="cell-val">-11.0万</div><div class="cell-details"><div class="cell-action negative">[变动] -11.0万</div></div></td><td><div class="cell-val">-1.3万</div><div class="cell-details"><div class="cell-action positive">[变动] +9.7万</div></div></td><td><div class="cell-val">-1.3万</div></td><td><div class="cell-val">18.0万</div><div class="cell-details"><div class="cell-action positive">[变动] +19.3万</div></div></td></tr><tr class="total-row"><td class="market">汇总</td><td class="asset-name">总资产</td><td><div class="cell-val">253.3万</div></td><td><div class="cell-val">257.4万</div><div class="cell-details"><div class="cell-action positive">[变动] +4.1万</div></div></td><td><div class="cell-val">208.2万</div><div class="cell-details"><div class="cell-action negative">[变动] -49.2万</div></div></td><td><div class="cell-val">220.7万</div><div class="cell-details"><div class="cell-action positive">[变动] +12.5万</div></div></td><td><div class="cell-val">229.9万</div><div class="cell-details"><div class="cell-action positive">[变动] +9.2万</div></div></td><td><div class="cell-val">250.0万</div><div class="cell-details"><div class="cell-action positive">[变动] +20.1万</div></div></td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <h3>持仓结构明细 (2026/3/27)</h3>
+        <div class="summary-info">
+            <div class="summary-item">
+                <h4>市场分布</h4>
+                <ul><li>CN: 161.6万 (64.6%)</li><li>US: 36.3万 (14.5%)</li><li>HK: 34.1万 (13.6%)</li><li>现金: 18.0万 (7.2%)</li></ul>
+            </div>
+            <div class="summary-item">
+                <h4>持仓资产</h4>
+                <ul><li>中矿资源: 120.8万 (48.3%)</li><li>碳酸锂2701: 40.8万 (16.3%)</li><li>传奇生物: 36.3万 (14.5%)</li><li>天齐锂业: 34.1万 (13.6%)</li><li>现金: 18.0万 (7.2%)</li></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data from Python
+        const dates = ["2026/1/2", "2026/3/10", "2026/3/21", "2026/3/25", "2026/3/26", "2026/3/27"];
+        const totals = [253.3, 257.4, 208.2, 220.7, 229.9, 250.0];
+        const trades = [0, 5.3, -17.6, 4.2, 179964.0, 9.7];
+        const marketFlucts = [0, -1.2, -31.6, 8.3, -179954.8, 10.4];
+        const marketData = [{"name": "CN", "value": 161.6}, {"name": "US", "value": 36.3}, {"name": "HK", "value": 34.1}, {"name": "\u73b0\u91d1", "value": 18.0}];
+        const assetData = [{"name": "\u4e2d\u77ff\u8d44\u6e90", "value": 120.8}, {"name": "\u78b3\u9178\u95022701", "value": 40.8}, {"name": "\u4f20\u5947\u751f\u7269", "value": 36.3}, {"name": "\u5929\u9f50\u9502\u4e1a", "value": 34.1}, {"name": "\u73b0\u91d1", "value": 18.0}];
+        const stackedSeries = [{"name": "\u4e2d\u77ff\u8d44\u6e90", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 201.1, "qty": 25600.0, "ratio": 0.7939202526648244}, {"value": 199.5, "qty": 24900.0, "ratio": 0.7750582750582752}, {"value": 112.5, "qty": 16600.0, "ratio": 0.5403458213256483}, {"value": 106.8, "qty": 16600.0, "ratio": 0.4839148164929769}, {"value": 113.2, "qty": 16600.0, "ratio": 0.49238799478033934}, {"value": 120.8, "qty": 16600.0, "ratio": 0.48319999999999996}]}, {"name": "\u4f20\u5947\u751f\u7269", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 41.4, "qty": 2724.0, "ratio": 0.16344255823134624}, {"value": 37.7, "qty": 2868.0, "ratio": 0.1464646464646465}, {"value": 26.4, "qty": 2200.0, "ratio": 0.12680115273775214}, {"value": 35.4, "qty": 3000.0, "ratio": 0.16039873130946988}, {"value": 36.5, "qty": 3000.0, "ratio": 0.15876468029578078}, {"value": 36.3, "qty": 3000.0, "ratio": 0.1452}]}, {"name": "\u5929\u9f50\u9502\u4e1a", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": 29.9, "qty": 8400.0, "ratio": 0.14361191162343898}, {"value": 32.6, "qty": 8200.0, "ratio": 0.14771182600815588}, {"value": 32.6, "qty": 8200.0, "ratio": 0.14180078294910833}, {"value": 34.1, "qty": 8200.0, "ratio": 0.1364}]}, {"name": "\u78b3\u9178\u95022701", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": 36.0, "qty": 5.0, "ratio": 0.16311735387403717}, {"value": 39.3, "qty": 25000.0, "ratio": 0.17094388864723795}, {"value": 40.8, "qty": 25000.0, "ratio": 0.16319999999999998}]}, {"name": "\u78b3\u9178\u95022612", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": 30.0, "qty": 5.0, "ratio": 0.1440922190201729}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "2605C14000", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": 8.6, "qty": 8.0, "ratio": 0.033411033411033415}, {"value": null, "qty": 8.0, "ratio": 0.0}, {"value": 11.2, "qty": 8.0, "ratio": 0.050747621205256006}, {"value": 9.6, "qty": 8.0, "ratio": 0.041757285776424534}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "\u518d\u9f0e\u533b\u836f", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 4.9, "qty": 4000.0, "ratio": 0.019344650611922625}, {"value": 11.6, "qty": 8800.0, "ratio": 0.04506604506604507}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "SQQQ", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": 15.5, "qty": 280.0, "ratio": 0.074447646493756}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "SOXS", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": 4.9, "qty": 175.0, "ratio": 0.023535062439961577}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "QQQ 270115 300P.", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 4.2, "qty": 2500.0, "ratio": 0.016581129095933678}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": 0.0}]}, {"name": "\u73b0\u91d1", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true}, "data": [{"value": null, "qty": 0, "ratio": 0.006711409395973154}, {"value": null, "qty": 0, "ratio": 0.0}, {"value": null, "qty": 0, "ratio": -0.05283381364073006}, {"value": null, "qty": 0, "ratio": -0.0058903488898957865}, {"value": null, "qty": 0, "ratio": -0.005654632448890823}, {"value": 18.0, "qty": 0, "ratio": 0.072}]}];
+
+        // Stacked Bar Chart
+        const stackChart = echarts.init(document.getElementById('stackChart'));
+        stackChart.setOption({
+            title: { text: '各标的市值随时间的长期变化 (堆积柱状图)', left: 'center', textStyle: { color: '#8c2620', fontSize: 20 } },
+            tooltip: { 
+                trigger: 'item',
+                backgroundColor: 'rgba(59, 49, 38, 0.9)',
+                borderColor: '#d4c2a5',
+                textStyle: { color: '#fffcf5' },
+                formatter: function (params) {
+                    if (!params.data || !params.data.value) return '';
+                    let qtyStr = params.data.qty ? '<br/>持股: ' + params.data.qty : '';
+                    let ratioStr = params.data.ratio ? '<br/>占比: ' + (params.data.ratio * 100).toFixed(1) + '%' : '';
+                    return params.seriesName + '<br/>市值: ' + params.data.value + '万' + qtyStr + ratioStr;
+                }
+            },
+            legend: { top: 35, type: 'scroll', textStyle: { color: '#3b3126', fontWeight: 600 } },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: [{ type: 'category', data: dates, axisLine: { lineStyle: { color: '#8c7355', width: 2 } }, axisLabel: { color: '#3b3126', fontWeight: 600 } }],
+            yAxis: [{ type: 'value', name: '市值 (万)', nameTextStyle: { color: '#3b3126', fontWeight: 600 }, axisLine: { show: true, lineStyle: { color: '#8c7355', width: 2 } }, splitLine: { lineStyle: { type: 'dashed', color: '#d4c2a5' } }, axisLabel: { color: '#3b3126', fontWeight: 600 } }],
+            color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
+            series: stackedSeries.map(s => {
+                s.itemStyle = { borderColor: '#fffcf5', borderWidth: 1 };
+                if (s.name !== "现金") {
+                    s.label.formatter = function(params) {
+                        if (!params.data || !params.data.value) return '';
+                        // 如果占比低于4%，只展示名称
+                        if (params.data.ratio < 0.04) return params.seriesName;
+                        let qty = params.data.qty;
+                        let ratio = (params.data.ratio * 100).toFixed(1) + '%';
+                        return params.seriesName + ' (' + ratio + ')\n' + params.data.value + '万 | ' + qty + '股';
+                    };
+                    s.label.rich = {};
+                } else {
+                    s.label.formatter = function(params) {
+                        if (!params.data || !params.data.value) return '';
+                        // 如果占比低于4%，只展示名称
+                        if (params.data.ratio < 0.04) return params.seriesName;
+                        let ratio = (params.data.ratio * 100).toFixed(1) + '%';
+                        return params.seriesName + ' (' + ratio + ')\n' + params.data.value + '万';
+                    };
+                }
+                return s;
+            })
+        });
+
+        // Trend Chart
+        const trendChart = echarts.init(document.getElementById('trendChart'));
+        trendChart.setOption({
+            title: { text: '资产总值变化', left: 'center', textStyle: { color: '#8c2620' } },
+            tooltip: { trigger: 'axis' },
+            xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#8c7355' } } },
+            yAxis: { type: 'value', name: '万', axisLine: { lineStyle: { color: '#8c7355' } }, splitLine: { lineStyle: { type: 'dashed', color: '#d4c2a5' } } },
+            series: [{
+                data: totals,
+                type: 'line',
+                smooth: true,
+                areaStyle: { opacity: 0.1, color: '#8c2620' },
+                label: { show: true, position: 'top', color: '#3b3126' },
+                lineStyle: { width: 3, color: '#8c2620' },
+                itemStyle: { color: '#8c2620' }
+            }]
+        });
+
+        // Step Change Chart (Stacked)
+        const stepChart = echarts.init(document.getElementById('stepChart'));
+        stepChart.setOption({
+            title: { text: '调仓效果拆解', left: 'center', textStyle: { color: '#8c2620' } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { bottom: '0', textStyle: { color: '#3b3126' } },
+            xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#8c7355' } } },
+            yAxis: { type: 'value', name: '万', axisLine: { lineStyle: { color: '#8c7355' } }, splitLine: { lineStyle: { type: 'dashed', color: '#d4c2a5' } } },
+            series: [
+                {
+                    name: '交易变动(调仓/买卖)',
+                    type: 'bar',
+                    stack: 'total',
+                    data: trades,
+                    itemStyle: { color: '#c07844' }
+                },
+                {
+                    name: '市场损益(股价变动)',
+                    type: 'bar',
+                    stack: 'total',
+                    data: marketFlucts,
+                    itemStyle: { color: (p) => p.value >= 0 ? '#4b6a53' : '#667863' }
+                }
+            ]
+        });
+
+        // Market Pie Chart
+        const marketChart = echarts.init(document.getElementById('marketChart'));
+        marketChart.setOption({
+            title: { text: '市场分布', left: 'center', textStyle: { color: '#8c2620' } },
+            tooltip: { trigger: 'item', formatter: '{b}: {c}万 ({d}%)' },
+            legend: { bottom: '0', textStyle: { color: '#3b3126' } },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 10, borderColor: '#fffcf5', borderWidth: 2 },
+                label: { show: false, position: 'center' },
+                emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#3b3126' } },
+                data: marketData
+            }]
+        });
+
+        // Asset Pie Chart
+        const assetChart = echarts.init(document.getElementById('assetChart'));
+        assetChart.setOption({
+            title: { text: '资产持仓占比', left: 'center', textStyle: { color: '#8c2620' } },
+            tooltip: { trigger: 'item', formatter: '{b}: {c}万 ({d}%)' },
+            legend: { bottom: '0', type: 'scroll', textStyle: { color: '#3b3126' } },
+            series: [{
+                type: 'pie',
+                radius: '70%',
+                data: assetData,
+                itemStyle: { borderColor: '#fffcf5', borderWidth: 1 },
+                emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+            }]
+        });
+
+        window.addEventListener('resize', () => {
+            stackChart.resize();
+            trendChart.resize();
+            stepChart.resize();
+            marketChart.resize();
+            assetChart.resize();
+        });
+    </script>
+    </body>
+    </html>
+    
