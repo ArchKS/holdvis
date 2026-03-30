@@ -118,7 +118,17 @@ def convert_and_append(raw_path: str, assets_path: str):
     else:
         today = datetime.now().strftime('%Y/%-m/%-d') if os.name != 'nt' else datetime.now().strftime('%Y/%#m/%#d')
 
+    # FIX: Check if file ends with newline before appending
+    if os.path.exists(assets_path) and os.path.getsize(assets_path) > 0:
+        with open(assets_path, 'rb+') as f:
+            f.seek(-1, os.SEEK_END)
+            last_char = f.read(1)
+            if last_char != b'\n' and last_char != b'\r':
+                f.write(b'\n')
+
     with open(assets_path, 'a', encoding='utf-8', newline='') as fout:
+        # Add an empty line before the block to separate it from existing data
+        fout.write('\n')
         writer = csv.writer(fout)
         for d in parsed:
             name = d.get('公司名称', '')
@@ -144,6 +154,8 @@ def convert_and_append(raw_path: str, assets_path: str):
             if len(row) < len(header):
                 row += [''] * (len(header) - len(row))
             writer.writerow(row)
+        # Add an empty line after the block
+        fout.write('\n')
 
     print(f'Appended {len(parsed)} rows to {assets_path} (date: {today}, backup at {bak_path})')
 

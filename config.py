@@ -33,5 +33,9 @@ CHART_CONFIG = {
 
     # 是否在柱状图中展示详细信息 (股数和市值)
     # True 为展示，False 为仅展示名称和占比
-    "showLabelDetails": True
+    "showLabelDetails": True,
+
+    # 默认展示的调仓柱子数量
+    # 当记录天数超过此数值时，图表会自动生成滚动条，并默认定位到最新的 N 个柱子
+    "defaultVisibleBars": 4
 }
