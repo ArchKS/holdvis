@@ -715,11 +715,37 @@
                     show: true,
                     xAxisIndex: [0],
                     start: zoomStart,
-                    end: 100, // Default show all, user can zoom
-                    bottom: 15,
+                    end: 100,
+                    bottom: 5,
+                    height: 24,
+                    backgroundColor: '#ede4d3',
                     borderColor: '#8c7355',
-                    fillerColor: 'rgba(140, 38, 32, 0.2)',
-                    textStyle: { color: '#3b3126' }
+                    fillerColor: 'rgba(140, 38, 32, 0.15)',
+                    textStyle: { color: '#3b3126', fontWeight: 'bold' },
+                    dataBackground: {
+                        lineStyle: { color: '#d4c2a5', width: 1 },
+                        areaStyle: { color: '#e3d9c6', opacity: 0.8 }
+                    },
+                    selectedDataBackground: {
+                        lineStyle: { color: '#8c2620', width: 2 },
+                        areaStyle: { color: '#8c2620', opacity: 0.2 }
+                    },
+                    handleIcon: 'path://M10.7,11.9H9.3c-1.4,0-2.5-1.1-2.5-2.5V2.5C6.8,1.1,7.9,0,9.3,0h1.4c1.4,0,2.5,1.1,2.5,2.5v6.9C13.2,10.8,12.1,11.9,10.7,11.9z M13.3,24.4H6.7c-1.1,0-2-0.9-2-2v-7.1c0-1.1,0.9-2,2-2h6.6c1.1,0,2,0.9,2,2v7.1C15.3,23.5,14.4,24.4,13.3,24.4z',
+                    handleSize: '100%',
+                    handleStyle: {
+                        color: '#fffcf5',
+                        borderColor: '#8c7355',
+                        borderWidth: 2,
+                        shadowBlur: 3,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        shadowOffsetX: 1,
+                        shadowOffsetY: 1
+                    },
+                    moveHandleSize: 8,
+                    moveHandleStyle: {
+                        color: '#8c2620',
+                        opacity: 0.8
+                    }
                 },
                 {
                     type: 'inside',
