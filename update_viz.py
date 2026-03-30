@@ -575,6 +575,12 @@ def generate_html():
         
         let stackOption = {{
             title: {{ text: '调仓可视化', left: 'center', textStyle: {{ color: '#8c2620', fontSize: 20 }} }},
+            toolbox: {{
+                right: 20,
+                feature: {{
+                    saveAsImage: {{ title: '保存为图片', name: '调仓可视化', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
+                }}
+            }},
             tooltip: {{ 
                 trigger: 'item',
                 backgroundColor: 'rgba(59, 49, 38, 0.9)',
@@ -816,6 +822,12 @@ def generate_html():
         const trendChart = echarts.init(document.getElementById('trendChart'));
         trendChart.setOption({{
             title: {{ text: '资产总值变化', left: 'center', textStyle: {{ color: '#8c2620' }} }},
+            toolbox: {{
+                right: 20,
+                feature: {{
+                    saveAsImage: {{ title: '保存', name: '资产总值变化', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
+                }}
+            }},
             tooltip: {{ trigger: 'axis' }},
             xAxis: {{ type: 'category', data: dates, axisLine: {{ lineStyle: {{ color: '#8c7355' }} }} }},
             yAxis: {{ type: 'value', name: '万', axisLine: {{ lineStyle: {{ color: '#8c7355' }} }}, splitLine: {{ lineStyle: {{ type: 'dashed', color: '#d4c2a5' }} }} }},
@@ -834,6 +846,12 @@ def generate_html():
         const stepChart = echarts.init(document.getElementById('stepChart'));
         stepChart.setOption({{
             title: {{ text: '调仓效果拆解', left: 'center', textStyle: {{ color: '#8c2620' }} }},
+            toolbox: {{
+                right: 20,
+                feature: {{
+                    saveAsImage: {{ title: '保存', name: '调仓效果拆解', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
+                }}
+            }},
             tooltip: {{ trigger: 'axis', axisPointer: {{ type: 'shadow' }} }},
             legend: {{ bottom: '0', textStyle: {{ color: '#3b3126' }} }},
             xAxis: {{ type: 'category', data: dates, axisLine: {{ lineStyle: {{ color: '#8c7355' }} }} }},
@@ -860,6 +878,12 @@ def generate_html():
         const marketChart = echarts.init(document.getElementById('marketChart'));
         marketChart.setOption({{
             title: {{ text: '市场分布', left: 'center', textStyle: {{ color: '#8c2620' }} }},
+            toolbox: {{
+                right: 20,
+                feature: {{
+                    saveAsImage: {{ title: '保存', name: '市场分布', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
+                }}
+            }},
             tooltip: {{ trigger: 'item', formatter: '{{b}}: {{c}}万 ({{d}}%)' }},
             legend: {{ bottom: '0', textStyle: {{ color: '#3b3126' }} }},
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
@@ -878,6 +902,12 @@ def generate_html():
         const assetChart = echarts.init(document.getElementById('assetChart'));
         assetChart.setOption({{
             title: {{ text: '资产持仓占比', left: 'center', textStyle: {{ color: '#8c2620' }} }},
+            toolbox: {{
+                right: 20,
+                feature: {{
+                    saveAsImage: {{ title: '保存', name: '资产持仓占比', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
+                }}
+            }},
             tooltip: {{ trigger: 'item', formatter: '{{b}}: {{c}}万 ({{d}}%)' }},
             legend: {{ bottom: '0', type: 'scroll', textStyle: {{ color: '#3b3126' }} }},
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
