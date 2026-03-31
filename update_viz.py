@@ -57,10 +57,16 @@ def generate_html():
     # Store totals and cash per date
     totals = {}
     cash = {}
+    day_snapshots = {}
     
     for date in dates:
         day_df = df[df['日期'] == date]
-        
+        # Keep relevant columns for snapshots
+        snapshot_cols = ['市场', '公司名称', '当前价', '盈亏%', '持有数量', '当前(万)', '现金(万)', '收益(万)', '收益率(%)']
+        # Check which of these exist in df
+        actual_cols = [c for c in snapshot_cols if c in day_df.columns]
+        day_snapshots[date] = day_df[actual_cols].fillna('').to_dict('records')
+
         # Get individual assets
         assets_df = day_df[day_df['公司名称'].notna() & (day_df['公司名称'] != '汇总')]
         
@@ -163,6 +169,7 @@ def generate_html():
     # Decomposed changes
     trade_contributions = [0]
     market_contributions = [0]
+    rebalance_info = {} # { date: { efficiency: 0, turnover: 0, trade_vol: 0 } }
     
     for i in range(1, len(dates)):
         d1 = dates[i-1]
@@ -170,24 +177,48 @@ def generate_html():
         
         step_trade = 0
         step_market = 0
+        trade_vol = 0
         
         # Cash change is always trading
-        step_trade += cash.get(d2, 0) - cash.get(d1, 0)
+        cash_diff = cash.get(d2, 0) - cash.get(d1, 0)
+        step_trade += cash_diff
+        trade_vol += abs(cash_diff)
+        
+        # Hypo value: what if we didn't trade? (Sum of prev_qty * curr_price + prev_cash)
+        hypo_val = cash.get(d1, 0)
         
         for name in all_asset_names:
             prev = asset_data[name].get(d1, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
             curr = asset_data[name].get(d2, {'val': 0.0, 'qty': 0.0, 'unit': 0.0})
             
+            qty_diff = curr['qty'] - prev['qty']
+            hypo_val += prev['qty'] * curr['unit']
+            
             if prev['qty'] == 0 and curr['qty'] > 0:
                 step_trade += curr['val']
+                trade_vol += abs(curr['val'])
             elif curr['qty'] == 0 and prev['qty'] > 0:
                 step_trade -= prev['val']
+                trade_vol += abs(prev['val'])
             else:
-                step_trade += (curr['qty'] - prev['qty']) * prev['unit']
+                t_val = qty_diff * prev['unit']
+                step_trade += t_val
                 step_market += curr['qty'] * (curr['unit'] - prev['unit'])
+                trade_vol += abs(t_val)
         
         trade_contributions.append(round(step_trade, 1))
         market_contributions.append(round(step_market, 1))
+        
+        # Efficiency = Actual Total - Hypothetical Total
+        eff = totals[d2] - hypo_val
+        turn = (trade_vol / totals[d1] * 100) if totals[d1] > 0 else 0
+        
+        rebalance_info[d2] = {
+            "prev_date": d1,
+            "efficiency": round(eff, 2),
+            "turnover": round(turn, 1),
+            "trade_vol": round(trade_vol, 2)
+        }
 
     # Market data (latest)
     chart_market_data = []
@@ -307,14 +338,40 @@ def generate_html():
         <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&display=swap');
-            body {{ font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #f4eee1; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmNGVlZTEiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDUpIi8+PC9zdmc+'); }}
-            .container {{ max-width: 1400px; margin: 0 auto; background: #fffcf5; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05), 0 4px 15px rgba(0,0,0,0.08); border: 2px solid #8c7355; position: relative; }}
+            body {{ font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #fbfaf7; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmYmZhZjciLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDMpIi8+PC9zdmc+'); }}
+            .container {{ max-width: 1400px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02), 0 4px 15px rgba(0,0,0,0.05); border: 2px solid #8c7355; position: relative; }}
             .container::before {{ content: ""; position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px; border: 1px solid #d4c2a5; pointer-events: none; }}
             h2, h3 {{ color: #8c2620; font-weight: 900; text-align: center; border-bottom: 2px solid #8c2620; padding-bottom: 10px; margin-bottom: 30px; letter-spacing: 2px; }}
             h3 {{ color: #3b3126; border-bottom: 1px solid #8c7355; margin-top: 50px; font-size: 1.4em; }}
             .chart-row {{ display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 40px; }}
             .chart-container {{ flex: 1; min-width: 350px; height: 600px; background: transparent; padding: 0; }}
             .full-width-chart {{ width: 100%; height: {chart_cfg['heightVh']}vh; margin-bottom: 40px; background: transparent; padding: 0; box-sizing: border-box; }}
+            
+            /* Rebalance Detail Panel */
+            .detail-panel {{ margin-top: 40px; border: 1px solid #8c7355; padding: 20px; background: #fdfdfb; display: none; }}
+            .detail-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8c2620; margin-bottom: 15px; padding-bottom: 10px; }}
+            .detail-header h4 {{ margin: 0; color: #8c2620; font-size: 1.4em; }}
+            .detail-stats {{ display: flex; gap: 20px; font-weight: bold; }}
+            .stat-item {{ background: #fbfaf7; padding: 5px 15px; border-radius: 4px; border: 1px solid #d4c2a5; }}
+            .detail-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            .detail-table th {{ background: #8c7355; color: white; text-align: left; padding: 10px; }}
+            .detail-table td {{ padding: 8px; border-bottom: 1px solid #d4c2a5; font-size: 0.9em; }}
+            .text-right {{ text-align: right !important; }}
+            .tables-row {{ display: flex; gap: 20px; overflow-x: auto; margin-top: 15px; }}
+            .table-container {{ flex: 1; min-width: 450px; }}
+            .table-container h5 {{ color: #8c7355; margin: 0 0 10px 0; border-left: 4px solid #8c2620; padding-left: 10px; }}
+            .row-summary {{ background-color: #fbfaf7; font-weight: bold; border-top: 2px solid #8c7355; }}
+            .row-summary td {{ color: #8c2620; }}
+            .val-up {{ color: #a43a3a; font-weight: bold; }}
+            .val-down {{ color: #4b6a53; font-weight: bold; }}
+
+            /* Calendar controls */
+            .calendar-wrapper {{ position: relative; margin-bottom: 30px; }}
+            .calendar-nav {{ position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }}
+            .nav-btn {{ pointer-events: auto; background: #8c7355; color: white; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-family: 'Noto Serif SC', serif; font-weight: bold; transition: all 0.2s; }}
+            .nav-btn:hover {{ background: #8c2620; transform: scale(1.05); }}
+            .nav-btn:active {{ transform: scale(0.95); }}
+
             /* Hide ECharts default loading/border */
             canvas {{ outline: none; }}
         </style>
@@ -323,11 +380,46 @@ def generate_html():
     <div class="container">
         <h2>投资组合调仓展示 (当前总市值: {total_val:.1f}万)</h2>
         
+        <div class="calendar-wrapper">
+            <div class="calendar-nav">
+                <button id="prevYearBtn" class="nav-btn" onclick="changeYear(-1)">← 上一年</button>
+                <button id="nextYearBtn" class="nav-btn" onclick="changeYear(1)">下一年 →</button>
+            </div>
+            <div id="calendarChart" style="width: 100%; height: 400px;"></div>
+        </div>
+
+        <div id="rebalanceDetail" class="detail-panel" style="margin-bottom: 40px;">
+            <div class="detail-header">
+                <h4 id="detailDate">调仓对比</h4>
+                <div class="detail-stats" style="opacity:0;">
+                    <div class="stat-item">交易额: <span id="statVol">0</span>万</div>
+                    <div class="stat-item">换手率: <span id="statTurn">0</span>%</div>
+                    <div class="stat-item">调仓贡献: <span id="statEff">0</span>万</div>
+                </div>
+            </div>
+
+            <div class="tables-row">
+                <div class="table-container">
+                    <h5 id="prevDateTitle">上期持仓</h5>
+                    <table class="detail-table">
+                        <thead id="prevHead"></thead>
+                        <tbody id="prevBody"></tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <h5 id="currDateTitle">当期持仓</h5>
+                    <table class="detail-table">
+                        <thead id="currHead"></thead>
+                        <tbody id="currBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div id="stackChart" class="full-width-chart"></div>
         
         <div class="chart-row">
             <div id="trendChart" class="chart-container"></div>
-            <div id="stepChart" class="chart-container"></div>
         </div>
 
         <div class="chart-row">
@@ -350,10 +442,127 @@ def generate_html():
         const assetData = {json.dumps(chart_asset_data)};
         const stackedSeries = {json.dumps(stacked_series)};
         const arrowData = {json.dumps(arrow_data)};
+        const rebalanceInfo = {json.dumps(rebalance_info)};
+        const daySnapshots = {json.dumps(day_snapshots)};
         const arrowLength = {chart_cfg.get('liquidationArrowLength', 120)};
         const showDetails = {'true' if show_details else 'false'};
         const defaultVisibleBars = {default_visible_bars};
         
+        // 0. Calendar Chart
+        const calendarChart = echarts.init(document.getElementById('calendarChart'));
+        const calendarData = dates.map(d => [d, 1]);
+        const allYears = dates.map(d => new Date(d).getFullYear());
+        const minYear = Math.min(...allYears);
+        const maxYear = Math.max(...allYears);
+        let currentDisplayedYear = maxYear;
+        
+        function updateCalendar(year) {{
+            document.getElementById('prevYearBtn').style.visibility = (year > minYear) ? 'visible' : 'hidden';
+            document.getElementById('nextYearBtn').style.visibility = (year < maxYear) ? 'visible' : 'hidden';
+
+            // Generate trading days grid for the year
+            const gridData = [];
+            const months = ['12月', '11月', '10月', '9月', '8月', '7月', '6月', '5月', '4月', '3月', '2月', '1月'];
+            
+            for (let m = 0; m < 12; m++) {{
+                let tradingDayIdx = 0;
+                const monthIdx = 11 - m; // 11 down to 0
+                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {{
+                    const dateObj = new Date(year, monthIdx, d);
+                    const dayOfWeek = dateObj.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip Sat/Sun
+                    
+                    const dateStr = `${{year}}/${{monthIdx + 1}}/${{d}}`;
+                    const dateStrAlt = `${{year}}-${{String(monthIdx + 1).padStart(2, '0')}}-${{String(d).padStart(2, '0')}}`;
+                    const dateStrAlt2 = `${{year}}/${{String(monthIdx + 1).padStart(2, '0')}}/${{String(d).padStart(2, '0')}}`;
+                    
+                    // Match multiple date formats in 'dates' array
+                    const isHighlight = dates.some(dt => dt === dateStr || dt === dateStrAlt || dt === dateStrAlt2);
+                    
+                    gridData.push([tradingDayIdx, m, d, isHighlight, dateStr]);
+                    tradingDayIdx++;
+                }}
+            }}
+
+            calendarChart.setOption({{
+                title: {{ text: '交易日调仓日历 (' + year + ')', left: 'center', top: 0, textStyle: {{ color: '#8c2620', fontSize: 16 }} }},
+                tooltip: {{ 
+                    formatter: function (p) {{ 
+                        const d = p.value[4];
+                        return d + (p.value[3] ? '<br/><b>有记录 (点击查看详情)</b>' : '<br/>无记录');
+                    }}
+                }},
+                grid: {{ top: 50, bottom: 30, left: 70, right: 40, containLabel: true }},
+                xAxis: {{ 
+                    type: 'category', 
+                    splitLine: {{ show: false }}, 
+                    axisTick: {{ show: false }},
+                    axisLine: {{ show: false }},
+                    axisLabel: {{ show: false }} 
+                }},
+                yAxis: {{ 
+                    type: 'category', 
+                    data: months, 
+                    splitLine: {{ show: false }},
+                    axisLine: {{ show: false }},
+                    axisTick: {{ show: false }},
+                    axisLabel: {{ color: '#8c7355', fontWeight: 'bold', fontSize: 13 }}
+                }},
+                series: [{{
+                    type: 'heatmap',
+                    data: gridData,
+                    label: {{
+                        show: true,
+                        formatter: function(p) {{ return p.value[2]; }},
+                        color: function(p) {{
+                            return p.value[3] ? '#ffffff' : '#3b3126';
+                        }},
+                        fontSize: 12
+                    }},
+                    itemStyle: {{
+                        borderColor: '#fffcf5',
+                        borderWidth: 2,
+                        borderRadius: 4,
+                        color: function(p) {{
+                            return p.value[3] ? '#8c2620' : '#ede4d3';
+                        }}
+                    }},
+                    emphasis: {{
+                        itemStyle: {{ shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' }}
+                    }}
+                }}]
+            }}, true);
+        }}
+
+        window.changeYear = function(delta) {{
+            currentDisplayedYear += delta;
+            updateCalendar(currentDisplayedYear);
+        }};
+
+        updateCalendar(currentDisplayedYear);
+
+        calendarChart.on('click', function (params) {{
+            const dateStr = params.value[4];
+            const actualDate = dates.find(d => {{
+                const d1 = new Date(d).toDateString();
+                const d2 = new Date(dateStr).toDateString();
+                return d1 === d2;
+            }});
+            
+            if (actualDate) {{
+                showRebalanceDetail(actualDate);
+                const idx = dates.indexOf(actualDate);
+                if (idx !== -1) {{
+                    stackChart.dispatchAction({{
+                        type: 'dataZoom',
+                        startValue: Math.max(0, idx - 2),
+                        endValue: Math.min(dates.length - 1, idx + 2)
+                    }});
+                }}
+            }}
+        }});
+
         // Calculate dataZoom start percentage
         let zoomStart = 0;
         if (dates.length > defaultVisibleBars) {{
@@ -650,38 +859,6 @@ def generate_html():
             }}]
         }});
 
-        // Step Change Chart (Stacked)
-        const stepChart = echarts.init(document.getElementById('stepChart'));
-        stepChart.setOption({{
-            title: {{ text: '调仓效果拆解', left: 'center', textStyle: {{ color: '#8c2620' }} }},
-            toolbox: {{
-                right: 20,
-                feature: {{
-                    saveAsImage: {{ title: '保存', name: '调仓效果拆解', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
-                }}
-            }},
-            tooltip: {{ trigger: 'axis', axisPointer: {{ type: 'shadow' }} }},
-            legend: {{ bottom: '0', textStyle: {{ color: '#3b3126' }} }},
-            xAxis: {{ type: 'category', data: dates, axisLine: {{ lineStyle: {{ color: '#8c7355' }} }} }},
-            yAxis: {{ type: 'value', name: '万', axisLine: {{ lineStyle: {{ color: '#8c7355' }} }}, splitLine: {{ lineStyle: {{ type: 'dashed', color: '#d4c2a5' }} }} }},
-            series: [
-                {{
-                    name: '交易变动(调仓/买卖)',
-                    type: 'bar',
-                    stack: 'total',
-                    data: trades,
-                    itemStyle: {{ color: '#c07844' }}
-                }},
-                {{
-                    name: '市场损益(股价变动)',
-                    type: 'bar',
-                    stack: 'total',
-                    data: marketFlucts,
-                    itemStyle: {{ color: (p) => p.value >= 0 ? '#4b6a53' : '#667863' }}
-                }}
-            ]
-        }});
-
         // Market Pie Chart
         const marketChart = echarts.init(document.getElementById('marketChart'));
         marketChart.setOption({{
@@ -780,6 +957,117 @@ def generate_html():
             }}]
         }});
 
+        function showRebalanceDetail(date) {{
+            const info = rebalanceInfo[date];
+            const panel = document.getElementById('rebalanceDetail');
+            if (!info) {{
+                panel.style.display = 'none';
+                return;
+            }}
+
+            panel.style.display = 'block';
+            document.getElementById('detailDate').innerText = `调仓对比 (${{date}})`;
+            document.getElementById('statVol').innerText = info.trade_vol;
+            document.getElementById('statTurn').innerText = info.turnover;
+            
+            const effSpan = document.getElementById('statEff');
+            effSpan.innerText = (info.efficiency > 0 ? "+" : "") + info.efficiency;
+            effSpan.className = info.efficiency >= 0 ? "val-up" : "val-down";
+
+            const prevDate = info.prev_date;
+            document.getElementById('prevDateTitle').innerText = `上期持仓 (${{prevDate}})`;
+            document.getElementById('currDateTitle').innerText = `当期持仓 (${{date}})`;
+
+            renderTable('prev', daySnapshots[prevDate]);
+            renderTable('curr', daySnapshots[date]);
+            
+            panel.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+        }}
+
+        function renderTable(prefix, data) {{
+            const head = document.getElementById(prefix + 'Head');
+            const body = document.getElementById(prefix + 'Body');
+            head.innerHTML = '';
+            body.innerHTML = '';
+            if (!data || data.length === 0) return;
+
+            const numericCols = ['当前价', '盈亏%', '持有数量', '当前(万)', '现金(万)', '收益(万)', '收益率(%)'];
+
+            // Generate header
+            const displayCols = Object.keys(data[0]).filter(c => !['收益(万)', '收益率(%)', '现金(万)'].includes(c));
+            const trH = document.createElement('tr');
+            displayCols.forEach(c => {{
+                const th = document.createElement('th');
+                th.innerText = c;
+                if (numericCols.includes(c)) th.className = 'text-right';
+                trH.appendChild(th);
+            }});
+            head.appendChild(trH);
+
+            // Generate body: Assets first
+            data.forEach(row => {{
+                if (row['公司名称'] === '汇总' || row['市场'] === '汇总') return; // Skip original summary row
+                
+                const tr = document.createElement('tr');
+                displayCols.forEach(c => {{
+                    const td = document.createElement('td');
+                    let val = row[c];
+                    if (typeof val === 'number') val = val.toFixed(2);
+                    td.innerText = val;
+                    if (numericCols.includes(c)) td.className = 'text-right';
+                    
+                    if (c === '盈亏%' && val) {{
+                        if (val.toString().includes('-')) td.classList.add('val-down');
+                        else if (parseFloat(val) > 0) td.classList.add('val-up');
+                    }}
+                    tr.appendChild(td);
+                }});
+                body.appendChild(tr);
+            }});
+
+            // Append Summary Rows at the bottom
+            const sumRow = data.find(r => r['公司名称'] === '汇总' || r['市场'] === '汇总');
+            if (sumRow) {{
+                const sumMetrics = [
+                    {{ label: '现金总计', key: '现金(万)', unit: '万' }},
+                    {{ label: '当期收益', key: '收益(万)', unit: '万' }},
+                    {{ label: '当期收益率', key: '收益率(%)', unit: '' }}
+                ];
+                
+                sumMetrics.forEach(m => {{
+                    const tr = document.createElement('tr');
+                    tr.className = 'row-summary';
+                    
+                    const tdLabel = document.createElement('td');
+                    tdLabel.innerText = m.label;
+                    tdLabel.style.textAlign = 'left';
+                    tdLabel.style.paddingRight = '20px';
+                    tr.appendChild(tdLabel);
+                    
+                    const tdVal = document.createElement('td');
+                    tdVal.colSpan = displayCols.length - 1;
+                    tdVal.className = 'text-right';
+                    let val = sumRow[m.key] || '0';
+                    tdVal.innerText = val + (m.unit ? ' ' + m.unit : '');
+                    
+                    if (m.key.includes('收益')) {{
+                        if (val.toString().includes('-')) tdVal.classList.add('val-down');
+                        else if (parseFloat(val) > 0) tdVal.classList.add('val-up');
+                    }}
+                    tr.appendChild(tdVal);
+                    body.appendChild(tr);
+                }});
+            }}
+        }}
+
+        stackChart.on('click', function(params) {{
+            if (params.name) showRebalanceDetail(params.name);
+        }});
+        
+        trendChart.on('click', function(params) {{
+            if (params.name) showRebalanceDetail(params.name);
+        }});
+
         // Listen to dataZoom event to recalculate arrow positions when zooming or panning
         let zoomTimeout;
         stackChart.on('dataZoom', function () {{
@@ -793,7 +1081,6 @@ def generate_html():
             stackChart.resize();
             updateMarks();
             trendChart.resize();
-            stepChart.resize();
             marketChart.resize();
             assetChart.resize();
         }});

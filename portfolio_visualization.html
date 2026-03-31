@@ -7,14 +7,40 @@
         <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&display=swap');
-            body { font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #f4eee1; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmNGVlZTEiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDUpIi8+PC9zdmc+'); }
-            .container { max-width: 1400px; margin: 0 auto; background: #fffcf5; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05), 0 4px 15px rgba(0,0,0,0.08); border: 2px solid #8c7355; position: relative; }
+            body { font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #fbfaf7; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmYmZhZjciLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDMpIi8+PC9zdmc+'); }
+            .container { max-width: 1400px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02), 0 4px 15px rgba(0,0,0,0.05); border: 2px solid #8c7355; position: relative; }
             .container::before { content: ""; position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px; border: 1px solid #d4c2a5; pointer-events: none; }
             h2, h3 { color: #8c2620; font-weight: 900; text-align: center; border-bottom: 2px solid #8c2620; padding-bottom: 10px; margin-bottom: 30px; letter-spacing: 2px; }
             h3 { color: #3b3126; border-bottom: 1px solid #8c7355; margin-top: 50px; font-size: 1.4em; }
             .chart-row { display: flex; flex-wrap: wrap; gap: 30px; margin-bottom: 40px; }
             .chart-container { flex: 1; min-width: 350px; height: 600px; background: transparent; padding: 0; }
             .full-width-chart { width: 100%; height: 100vh; margin-bottom: 40px; background: transparent; padding: 0; box-sizing: border-box; }
+            
+            /* Rebalance Detail Panel */
+            .detail-panel { margin-top: 40px; border: 1px solid #8c7355; padding: 20px; background: #fdfdfb; display: none; }
+            .detail-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8c2620; margin-bottom: 15px; padding-bottom: 10px; }
+            .detail-header h4 { margin: 0; color: #8c2620; font-size: 1.4em; }
+            .detail-stats { display: flex; gap: 20px; font-weight: bold; }
+            .stat-item { background: #fbfaf7; padding: 5px 15px; border-radius: 4px; border: 1px solid #d4c2a5; }
+            .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .detail-table th { background: #8c7355; color: white; text-align: left; padding: 10px; }
+            .detail-table td { padding: 8px; border-bottom: 1px solid #d4c2a5; font-size: 0.9em; }
+            .text-right { text-align: right !important; }
+            .tables-row { display: flex; gap: 20px; overflow-x: auto; margin-top: 15px; }
+            .table-container { flex: 1; min-width: 450px; }
+            .table-container h5 { color: #8c7355; margin: 0 0 10px 0; border-left: 4px solid #8c2620; padding-left: 10px; }
+            .row-summary { background-color: #fbfaf7; font-weight: bold; border-top: 2px solid #8c7355; }
+            .row-summary td { color: #8c2620; }
+            .val-up { color: #a43a3a; font-weight: bold; }
+            .val-down { color: #4b6a53; font-weight: bold; }
+
+            /* Calendar controls */
+            .calendar-wrapper { position: relative; margin-bottom: 30px; }
+            .calendar-nav { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+            .nav-btn { pointer-events: auto; background: #8c7355; color: white; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-family: 'Noto Serif SC', serif; font-weight: bold; transition: all 0.2s; }
+            .nav-btn:hover { background: #8c2620; transform: scale(1.05); }
+            .nav-btn:active { transform: scale(0.95); }
+
             /* Hide ECharts default loading/border */
             canvas { outline: none; }
         </style>
@@ -23,11 +49,46 @@
     <div class="container">
         <h2>投资组合调仓展示 (当前总市值: 234.4万)</h2>
         
+        <div class="calendar-wrapper">
+            <div class="calendar-nav">
+                <button id="prevYearBtn" class="nav-btn" onclick="changeYear(-1)">← 上一年</button>
+                <button id="nextYearBtn" class="nav-btn" onclick="changeYear(1)">下一年 →</button>
+            </div>
+            <div id="calendarChart" style="width: 100%; height: 400px;"></div>
+        </div>
+
+        <div id="rebalanceDetail" class="detail-panel" style="margin-bottom: 40px;">
+            <div class="detail-header">
+                <h4 id="detailDate">调仓对比</h4>
+                <div class="detail-stats" style="opacity:0;">
+                    <div class="stat-item">交易额: <span id="statVol">0</span>万</div>
+                    <div class="stat-item">换手率: <span id="statTurn">0</span>%</div>
+                    <div class="stat-item">调仓贡献: <span id="statEff">0</span>万</div>
+                </div>
+            </div>
+
+            <div class="tables-row">
+                <div class="table-container">
+                    <h5 id="prevDateTitle">上期持仓</h5>
+                    <table class="detail-table">
+                        <thead id="prevHead"></thead>
+                        <tbody id="prevBody"></tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <h5 id="currDateTitle">当期持仓</h5>
+                    <table class="detail-table">
+                        <thead id="currHead"></thead>
+                        <tbody id="currBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div id="stackChart" class="full-width-chart"></div>
         
         <div class="chart-row">
             <div id="trendChart" class="chart-container"></div>
-            <div id="stepChart" class="chart-container"></div>
         </div>
 
         <div class="chart-row">
@@ -50,10 +111,127 @@
         const assetData = [{"name": "\u4e2d\u77ff\u8d44\u6e90", "value": 104.0}, {"name": "\u5929\u9f50\u9502\u4e1a", "value": 33.3}, {"name": "LC2701", "value": 30.0}, {"name": "\u4f20\u5947\u751f\u7269", "value": 29.9}, {"name": "\u73b0\u91d1", "value": 20.0}, {"name": "LC2607 C18000", "value": 12.2}, {"name": "SQQQ PUT", "value": 5.0}];
         const stackedSeries = [{"name": "\u4e2d\u77ff\u8d44\u6e90", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 5.0, "qty": 1800.0, "ratio": 0.0584795321637427, "is_new": true}, {"value": 50.2, "qty": 17900.0, "ratio": 0.37915407854984895, "is_new": false}, {"value": 50.2, "qty": 17900.0, "ratio": 0.5450597176981542, "is_new": false}, {"value": 201.1, "qty": 25600.0, "ratio": 0.7939202526648244, "is_new": false}, {"value": 199.5, "qty": 24900.0, "ratio": 0.7750582750582752, "is_new": false}, {"value": 112.5, "qty": 16600.0, "ratio": 0.5189114391143911, "is_new": false}, {"value": 106.8, "qty": 16600.0, "ratio": 0.4839148164929769, "is_new": false}, {"value": 113.2, "qty": 16600.0, "ratio": 0.49238799478033934, "is_new": false}, {"value": 120.8, "qty": 16600.0, "ratio": 0.48319999999999996, "is_new": false}, {"value": 121.2, "qty": 16600.0, "ratio": 0.4752941176470588, "is_new": false}, {"value": 102.5, "qty": 14000.0, "ratio": 0.4052985369711348, "is_new": false}, {"value": 104.0, "qty": 14000.0, "ratio": 0.44368600682593856, "is_new": false}]}, {"name": "\u4f20\u5947\u751f\u7269", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 41.4, "qty": 2724.0, "ratio": 0.16344255823134624, "is_new": true}, {"value": 37.7, "qty": 2868.0, "ratio": 0.1464646464646465, "is_new": false}, {"value": 26.4, "qty": 2200.0, "ratio": 0.12177121771217711, "is_new": false}, {"value": 35.4, "qty": 3000.0, "ratio": 0.16039873130946988, "is_new": false}, {"value": 36.5, "qty": 3000.0, "ratio": 0.15876468029578078, "is_new": false}, {"value": 36.3, "qty": 3000.0, "ratio": 0.1452, "is_new": false}, {"value": 29.0, "qty": 2500.0, "ratio": 0.11372549019607843, "is_new": false}, {"value": 29.0, "qty": 2500.0, "ratio": 0.11466982997232107, "is_new": false}, {"value": 29.9, "qty": 2500.0, "ratio": 0.12755972696245732, "is_new": false}]}, {"name": "LC2701", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 30.0, "qty": 5.0, "ratio": 0.13837638376383762, "is_new": true}, {"value": 36.0, "qty": 5.0, "ratio": 0.16311735387403717, "is_new": false}, {"value": 39.3, "qty": 5.0, "ratio": 0.17094388864723795, "is_new": false}, {"value": 40.8, "qty": 5.0, "ratio": 0.16319999999999998, "is_new": false}, {"value": 44.0, "qty": 5.0, "ratio": 0.17254901960784313, "is_new": false}, {"value": 35.0, "qty": 5.0, "ratio": 0.1383946223803875, "is_new": false}, {"value": 30.0, "qty": 5.0, "ratio": 0.12798634812286688, "is_new": false}]}, {"name": "\u5929\u9f50\u9502\u4e1a", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 29.9, "qty": 8400.0, "ratio": 0.1379151291512915, "is_new": true}, {"value": 32.6, "qty": 8200.0, "ratio": 0.14771182600815588, "is_new": false}, {"value": 32.6, "qty": 8200.0, "ratio": 0.14180078294910833, "is_new": false}, {"value": 34.1, "qty": 8200.0, "ratio": 0.1364, "is_new": false}, {"value": 34.5, "qty": 8200.0, "ratio": 0.13529411764705881, "is_new": false}, {"value": 34.5, "qty": 8200.0, "ratio": 0.13641755634638197, "is_new": false}, {"value": 33.3, "qty": 8200.0, "ratio": 0.14206484641638223, "is_new": false}]}, {"name": "\u73b0\u91d1", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true}, "data": [{"value": 18.0, "qty": 0, "ratio": 0.21052631578947373, "is_new": false}, {"value": 56.0, "qty": 0, "ratio": 0.4229607250755287, "is_new": false}, {"value": 15.8, "qty": 0, "ratio": 0.17155266015200868, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.006711409395973154, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": -0.0507380073800738, "is_new": false}, {"value": null, "qty": 0, "ratio": -0.0058903488898957865, "is_new": false}, {"value": null, "qty": 0, "ratio": -0.005654632448890823, "is_new": false}, {"value": 18.0, "qty": 0, "ratio": 0.072, "is_new": false}, {"value": 20.0, "qty": 0, "ratio": 0.0784313725490196, "is_new": false}, {"value": 30.0, "qty": 0, "ratio": 0.11862396204033214, "is_new": false}, {"value": 20.0, "qty": 0, "ratio": 0.08532423208191126, "is_new": false}]}, {"name": "\u7267\u539f\u80a1\u4efd", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 38.6, "qty": 10000.0, "ratio": 0.4514619883040937, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "2605C14000", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 8.6, "qty": 8.0, "ratio": 0.033411033411033415, "is_new": true}, {"value": 8.6, "qty": 8.0, "ratio": 0.03966789667896679, "is_new": false}, {"value": 11.2, "qty": 8.0, "ratio": 0.050747621205256006, "is_new": false}, {"value": 9.6, "qty": 8.0, "ratio": 0.041757285776424534, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "PDD", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 7.6, "qty": 94.0, "ratio": 0.057401812688821746, "is_new": true}, {"value": 19.1, "qty": 260.0, "ratio": 0.20738327904451684, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "LC2607 C18000", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 14.4, "qty": 8.0, "ratio": 0.05693950177935943, "is_new": true}, {"value": 12.2, "qty": 10.0, "ratio": 0.05204778156996587, "is_new": false}]}, {"name": "\u836f\u660e\u751f\u7269", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 11.6, "qty": 12000.0, "ratio": 0.13567251461988306, "is_new": true}, {"value": 12.1, "qty": 7000.0, "ratio": 0.09138972809667673, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "SQQQ PUT", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 6.3, "qty": 800.0, "ratio": 0.024705882352941175, "is_new": true}, {"value": 6.3, "qty": 800.0, "ratio": 0.02491103202846975, "is_new": false}, {"value": 5.0, "qty": 800.0, "ratio": 0.021331058020477814, "is_new": false}]}, {"name": "\u518d\u9f0e\u533b\u836f", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 4000.0, "ratio": 0.019344650611922625, "is_new": true}, {"value": 11.6, "qty": 8800.0, "ratio": 0.04506604506604507, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "SQQQ", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 15.5, "qty": 280.0, "ratio": 0.07149446494464945, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "\u540c\u4ec1\u5802\u56fd\u836f", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": 9.4, "qty": 12000.0, "ratio": 0.10994152046783628, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "TMF", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 6.5, "qty": 228.0, "ratio": 0.04909365558912387, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "ALB", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 6.0, "qty": 140.0, "ratio": 0.06514657980456025, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}, {"name": "SOXS", "type": "bar", "stack": "Total", "emphasis": {"focus": "series"}, "label": {"show": true, "rich": {"qty": {"fontSize": 11, "color": "#eee"}}}, "data": [{"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": 4.9, "qty": 175.0, "ratio": 0.022601476014760147, "is_new": true}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}, {"value": null, "qty": 0, "ratio": 0.0, "is_new": false}]}];
         const arrowData = [{"name": "\u4e2d\u77ff\u8d44\u6e90", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": 16100.0, "trade_val": 44.72222222222222, "is_new": false, "is_liquidation": false}, {"name": "\u4e2d\u77ff\u8d44\u6e90", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": 7700.0, "trade_val": 21.594413407821232, "is_new": false, "is_liquidation": false}, {"name": "\u4e2d\u77ff\u8d44\u6e90", "d1": "2026/1/2", "d2": "2026/3/10", "qty_diff": -700.0, "trade_val": -5.498828125, "is_new": false, "is_liquidation": false}, {"name": "\u4e2d\u77ff\u8d44\u6e90", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": -8300.0, "trade_val": -66.5, "is_new": false, "is_liquidation": false}, {"name": "\u4e2d\u77ff\u8d44\u6e90", "d1": "2026/3/28", "d2": "2026/3/30", "qty_diff": -2600.0, "trade_val": -18.983132530120482, "is_new": false, "is_liquidation": false}, {"name": "\u7267\u539f\u80a1\u4efd", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -10000.0, "trade_val": -38.6, "is_new": false, "is_liquidation": true}, {"name": "LC2701", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": 5.0, "trade_val": 30.0, "is_new": true, "is_liquidation": false}, {"name": "\u751f\u732a2609", "d1": "2026/3/28", "d2": "2026/3/30", "qty_diff": 1.0, "trade_val": 1.2, "is_new": true, "is_liquidation": false}, {"name": "\u751f\u732a2609", "d1": "2026/3/30", "d2": "2026/3/31", "qty_diff": -1.0, "trade_val": -1.2, "is_new": false, "is_liquidation": true}, {"name": "\u518d\u9f0e\u533b\u836f", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": 4000.0, "trade_val": 4.9, "is_new": true, "is_liquidation": false}, {"name": "\u518d\u9f0e\u533b\u836f", "d1": "2026/1/2", "d2": "2026/3/10", "qty_diff": 4800.0, "trade_val": 5.880000000000001, "is_new": false, "is_liquidation": false}, {"name": "\u518d\u9f0e\u533b\u836f", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": -8800.0, "trade_val": -11.6, "is_new": false, "is_liquidation": true}, {"name": "\u540c\u4ec1\u5802\u56fd\u836f", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -12000.0, "trade_val": -9.4, "is_new": false, "is_liquidation": true}, {"name": "\u5929\u9f50\u9502\u4e1a", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": 8400.0, "trade_val": 29.9, "is_new": true, "is_liquidation": false}, {"name": "\u5929\u9f50\u9502\u4e1a", "d1": "2026/3/21", "d2": "2026/3/25", "qty_diff": -200.0, "trade_val": -0.7119047619047618, "is_new": false, "is_liquidation": false}, {"name": "\u6052\u9686\u5730\u4ea7", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -2000.0, "trade_val": -1.0, "is_new": false, "is_liquidation": true}, {"name": "\u674e\u5b81", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -500.0, "trade_val": -0.6, "is_new": false, "is_liquidation": true}, {"name": "\u798f\u5bff\u56ed", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -3000.0, "trade_val": -1.3, "is_new": false, "is_liquidation": true}, {"name": "\u836f\u660e\u751f\u7269", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": -5000.0, "trade_val": -4.833333333333333, "is_new": false, "is_liquidation": false}, {"name": "\u836f\u660e\u751f\u7269", "d1": "2025/1/27", "d2": "2025/4/8", "qty_diff": -7000.0, "trade_val": -12.1, "is_new": false, "is_liquidation": true}, {"name": "2605C14000", "d1": "2026/1/2", "d2": "2026/3/10", "qty_diff": 8.0, "trade_val": 8.6, "is_new": true, "is_liquidation": false}, {"name": "2605C14000", "d1": "2026/3/26", "d2": "2026/3/27", "qty_diff": -8.0, "trade_val": -9.6, "is_new": false, "is_liquidation": true}, {"name": "ALB2701", "d1": "2025/1/27", "d2": "2025/4/8", "qty_diff": 1700.0, "trade_val": 0.5, "is_new": true, "is_liquidation": false}, {"name": "ALB2701", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": -1700.0, "trade_val": -0.5, "is_new": false, "is_liquidation": true}, {"name": "LC2607 C18000", "d1": "2026/3/28", "d2": "2026/3/30", "qty_diff": 8.0, "trade_val": 14.4, "is_new": true, "is_liquidation": false}, {"name": "LC2607 C18000", "d1": "2026/3/30", "d2": "2026/3/31", "qty_diff": 2.0, "trade_val": 3.6, "is_new": false, "is_liquidation": false}, {"name": "QQQ270115_300P", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": 2500.0, "trade_val": 4.2, "is_new": true, "is_liquidation": false}, {"name": "QQQ270115_300P", "d1": "2026/1/2", "d2": "2026/3/10", "qty_diff": -2500.0, "trade_val": -4.2, "is_new": false, "is_liquidation": true}, {"name": "SQQQ PUT", "d1": "2026/3/27", "d2": "2026/3/28", "qty_diff": 800.0, "trade_val": 6.3, "is_new": true, "is_liquidation": false}, {"name": "ALB", "d1": "2025/1/27", "d2": "2025/4/8", "qty_diff": 140.0, "trade_val": 6.0, "is_new": true, "is_liquidation": false}, {"name": "ALB", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": -140.0, "trade_val": -6.0, "is_new": false, "is_liquidation": true}, {"name": "PDD", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": 94.0, "trade_val": 7.6, "is_new": true, "is_liquidation": false}, {"name": "PDD", "d1": "2025/1/27", "d2": "2025/4/8", "qty_diff": 166.0, "trade_val": 13.42127659574468, "is_new": false, "is_liquidation": false}, {"name": "PDD", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": -260.0, "trade_val": -19.1, "is_new": false, "is_liquidation": true}, {"name": "SOXS", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": 175.0, "trade_val": 4.9, "is_new": true, "is_liquidation": false}, {"name": "SOXS", "d1": "2026/3/21", "d2": "2026/3/25", "qty_diff": -175.0, "trade_val": -4.9, "is_new": false, "is_liquidation": true}, {"name": "SQQQ", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": 280.0, "trade_val": 15.5, "is_new": true, "is_liquidation": false}, {"name": "SQQQ", "d1": "2026/3/21", "d2": "2026/3/25", "qty_diff": -280.0, "trade_val": -15.5, "is_new": false, "is_liquidation": true}, {"name": "TMF", "d1": "2024/8/22", "d2": "2025/1/27", "qty_diff": 228.0, "trade_val": 6.5, "is_new": true, "is_liquidation": false}, {"name": "TMF", "d1": "2025/1/27", "d2": "2025/4/8", "qty_diff": -228.0, "trade_val": -6.5, "is_new": false, "is_liquidation": true}, {"name": "\u4f20\u5947\u751f\u7269", "d1": "2025/4/8", "d2": "2026/1/2", "qty_diff": 2724.0, "trade_val": 41.4, "is_new": true, "is_liquidation": false}, {"name": "\u4f20\u5947\u751f\u7269", "d1": "2026/1/2", "d2": "2026/3/10", "qty_diff": 144.0, "trade_val": 2.1885462555066075, "is_new": false, "is_liquidation": false}, {"name": "\u4f20\u5947\u751f\u7269", "d1": "2026/3/10", "d2": "2026/3/21", "qty_diff": -668.0, "trade_val": -8.780892608089262, "is_new": false, "is_liquidation": false}, {"name": "\u4f20\u5947\u751f\u7269", "d1": "2026/3/21", "d2": "2026/3/25", "qty_diff": 800.0, "trade_val": 9.6, "is_new": false, "is_liquidation": false}, {"name": "\u4f20\u5947\u751f\u7269", "d1": "2026/3/27", "d2": "2026/3/28", "qty_diff": -500.0, "trade_val": -6.05, "is_new": false, "is_liquidation": false}];
+        const rebalanceInfo = {"2025/1/27": {"prev_date": "2024/8/22", "efficiency": 88.61, "turnover": 178.4, "trade_vol": 152.56}, "2025/4/8": {"prev_date": "2025/1/27", "efficiency": -21.01, "turnover": 59.5, "trade_vol": 78.72}, "2026/1/2": {"prev_date": "2025/4/8", "efficiency": 96.89, "turnover": 121.4, "trade_vol": 111.79}, "2026/3/10": {"prev_date": "2026/1/2", "efficiency": 9.51, "turnover": 11.1, "trade_vol": 28.07}, "2026/3/21": {"prev_date": "2026/3/10", "efficiency": 5.03, "turnover": 69.2, "trade_vol": 178.18}, "2026/3/25": {"prev_date": "2026/3/21", "efficiency": 18.34, "turnover": 18.6, "trade_vol": 40.41}, "2026/3/26": {"prev_date": "2026/3/25", "efficiency": 0.0, "turnover": 0.0, "trade_vol": 0.0}, "2026/3/27": {"prev_date": "2026/3/26", "efficiency": 19.3, "turnover": 12.6, "trade_vol": 28.9}, "2026/3/28": {"prev_date": "2026/3/27", "efficiency": 2.5, "turnover": 5.7, "trade_vol": 14.35}, "2026/3/30": {"prev_date": "2026/3/28", "efficiency": 6.56, "turnover": 17.5, "trade_vol": 44.58}, "2026/3/31": {"prev_date": "2026/3/30", "efficiency": -7.56, "turnover": 5.9, "trade_vol": 14.8}};
+        const daySnapshots = {"2024/8/22": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u7267\u539f\u80a1\u4efd", "\u5f53\u524d\u4ef7": "\u00a538.64", "\u76c8\u4e8f%": "-6.67%", "\u6301\u6709\u6570\u91cf": 10000.0, "\u5f53\u524d(\u4e07)": 38.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u836f\u660e\u751f\u7269", "\u5f53\u524d\u4ef7": "HK$10.52", "\u76c8\u4e8f%": "-17.81%", "\u6301\u6709\u6570\u91cf": 12000.0, "\u5f53\u524d(\u4e07)": 11.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u540c\u4ec1\u5802\u56fd\u836f", "\u5f53\u524d\u4ef7": "HK$8.58", "\u76c8\u4e8f%": "-9.87%", "\u6301\u6709\u6570\u91cf": 12000.0, "\u5f53\u524d(\u4e07)": 9.4, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a527.50", "\u76c8\u4e8f%": "1.85%", "\u6301\u6709\u6570\u91cf": 1800.0, "\u5f53\u524d(\u4e07)": 5.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u6052\u9686\u5730\u4ea7", "\u5f53\u524d\u4ef7": "HK$5.61", "\u76c8\u4e8f%": "0.54%", "\u6301\u6709\u6570\u91cf": 2000.0, "\u5f53\u524d(\u4e07)": 1.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u798f\u5bff\u56ed", "\u5f53\u524d\u4ef7": "HK$4.66", "\u76c8\u4e8f%": "-2.92%", "\u6301\u6709\u6570\u91cf": 3000.0, "\u5f53\u524d(\u4e07)": 1.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u674e\u5b81", "\u5f53\u524d\u4ef7": "HK$13.88", "\u76c8\u4e8f%": "-0.86%", "\u6301\u6709\u6570\u91cf": 500.0, "\u5f53\u524d(\u4e07)": 0.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 18.0, "\u6536\u76ca(\u4e07)": -19.6, "\u6536\u76ca\u7387(%)": "-7.6%"}], "2025/1/27": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a528.03", "\u76c8\u4e8f%": "-16.1%", "\u6301\u6709\u6570\u91cf": 17900.0, "\u5f53\u524d(\u4e07)": 50.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u836f\u660e\u751f\u7269", "\u5f53\u524d\u4ef7": "HK$18.54", "\u76c8\u4e8f%": "85.4%", "\u6301\u6709\u6570\u91cf": 7000.0, "\u5f53\u524d(\u4e07)": 12.1, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "PDD", "\u5f53\u524d\u4ef7": "$111.34", "\u76c8\u4e8f%": "1.2%", "\u6301\u6709\u6570\u91cf": 94.0, "\u5f53\u524d(\u4e07)": 7.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "TMF", "\u5f53\u524d\u4ef7": "$39.34", "\u76c8\u4e8f%": "3.6%", "\u6301\u6709\u6570\u91cf": 228.0, "\u5f53\u524d(\u4e07)": 6.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 56.0, "\u6536\u76ca(\u4e07)": 10.6, "\u6536\u76ca\u7387(%)": "11.7%"}], "2025/4/8": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a528.03", "\u76c8\u4e8f%": "-16.1%", "\u6301\u6709\u6570\u91cf": 17900.0, "\u5f53\u524d(\u4e07)": 50.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "PDD", "\u5f53\u524d\u4ef7": "$100.01", "\u76c8\u4e8f%": "-11.2%", "\u6301\u6709\u6570\u91cf": 260.0, "\u5f53\u524d(\u4e07)": 19.1, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "ALB", "\u5f53\u524d\u4ef7": "$58", "\u76c8\u4e8f%": "-1.5%", "\u6301\u6709\u6570\u91cf": 140.0, "\u5f53\u524d(\u4e07)": 6.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "ALB2701", "\u5f53\u524d\u4ef7": "$6.35", "\u76c8\u4e8f%": "-14.8%", "\u6301\u6709\u6570\u91cf": 100.0, "\u5f53\u524d(\u4e07)": 0.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "ALB2701", "\u5f53\u524d\u4ef7": "$0.38", "\u76c8\u4e8f%": "-58.5%", "\u6301\u6709\u6570\u91cf": 1700.0, "\u5f53\u524d(\u4e07)": 0.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 15.8, "\u6536\u76ca(\u4e07)": -12.7, "\u6536\u76ca\u7387(%)": "-13.8%"}], "2026/1/2": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a578.55", "\u76c8\u4e8f%": "154.5%", "\u6301\u6709\u6570\u91cf": 25600.0, "\u5f53\u524d(\u4e07)": 201.1, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$21.74", "\u76c8\u4e8f%": "-16.8%", "\u6301\u6709\u6570\u91cf": 2724.0, "\u5f53\u524d(\u4e07)": 41.4, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u518d\u9f0e\u533b\u836f", "\u5f53\u524d\u4ef7": "HK$13.6", "\u76c8\u4e8f%": "-5.0%", "\u6301\u6709\u6570\u91cf": 4000.0, "\u5f53\u524d(\u4e07)": 4.9, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "QQQ270115_300P", "\u5f53\u524d\u4ef7": "$2.40", "\u76c8\u4e8f%": "-27.2%", "\u6301\u6709\u6570\u91cf": 2500.0, "\u5f53\u524d(\u4e07)": 4.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 1.7, "\u6536\u76ca(\u4e07)": 0.0, "\u6536\u76ca\u7387(%)": "0.0%"}], "2026/3/10": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a580.13", "\u76c8\u4e8f%": "170.3%", "\u6301\u6709\u6570\u91cf": 24900.0, "\u5f53\u524d(\u4e07)": 199.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$19.14", "\u76c8\u4e8f%": "-24.3%", "\u6301\u6709\u6570\u91cf": 2868.0, "\u5f53\u524d(\u4e07)": 37.7, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u518d\u9f0e\u533b\u836f", "\u5f53\u524d\u4ef7": "HK$15.1", "\u76c8\u4e8f%": "5.3%", "\u6301\u6709\u6570\u91cf": 8800.0, "\u5f53\u524d(\u4e07)": 11.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "2605C14000", "\u5f53\u524d\u4ef7": "\u00a510800.00", "\u76c8\u4e8f%": "0.0%", "\u6301\u6709\u6570\u91cf": 8.0, "\u5f53\u524d(\u4e07)": 8.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 0.0, "\u6536\u76ca(\u4e07)": -5.5, "\u6536\u76ca\u7387(%)": "-2.14%"}], "2026/3/21": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a567.80", "\u76c8\u4e8f%": "118.7%", "\u6301\u6709\u6570\u91cf": 16600.0, "\u5f53\u524d(\u4e07)": 112.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$17.41", "\u76c8\u4e8f%": "-36.0%", "\u6301\u6709\u6570\u91cf": 2200.0, "\u5f53\u524d(\u4e07)": 26.4, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 30.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "SQQQ", "\u5f53\u524d\u4ef7": "$80.25", "\u76c8\u4e8f%": "7.0%", "\u6301\u6709\u6570\u91cf": 280.0, "\u5f53\u524d(\u4e07)": 15.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "SOXS", "\u5f53\u524d\u4ef7": "$40.66", "\u76c8\u4e8f%": "7.0%", "\u6301\u6709\u6570\u91cf": 175.0, "\u5f53\u524d(\u4e07)": 4.9, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$40.5", "\u76c8\u4e8f%": "-7.0%", "\u6301\u6709\u6570\u91cf": 8400.0, "\u5f53\u524d(\u4e07)": 29.9, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "2605C14000", "\u5f53\u524d\u4ef7": "\u00a50.00", "\u76c8\u4e8f%": "0", "\u6301\u6709\u6570\u91cf": 8.0, "\u5f53\u524d(\u4e07)": 8.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": -11.0, "\u6536\u76ca(\u4e07)": -54.7, "\u6536\u76ca\u7387(%)": "-21.29%"}], "2026/3/25": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a564.32", "\u76c8\u4e8f%": "107.5%", "\u6301\u6709\u6570\u91cf": 16600.0, "\u5f53\u524d(\u4e07)": 106.8, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 36.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "2605C14000", "\u5f53\u524d\u4ef7": "\u00a514000.00", "\u76c8\u4e8f%": "29.6%", "\u6301\u6709\u6570\u91cf": 8.0, "\u5f53\u524d(\u4e07)": 11.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$45.0", "\u76c8\u4e8f%": "3.4%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 32.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$17.09", "\u76c8\u4e8f%": "-30.5%", "\u6301\u6709\u6570\u91cf": 3000.0, "\u5f53\u524d(\u4e07)": 35.4, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": -1.3, "\u6536\u76ca(\u4e07)": -42.4, "\u6536\u76ca\u7387(%)": "-16.52%"}], "2026/3/26": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a568.22", "\u76c8\u4e8f%": "120.1%", "\u6301\u6709\u6570\u91cf": 16600.0, "\u5f53\u524d(\u4e07)": 113.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "\u00a515.7", "\u76c8\u4e8f%": "-1.9%", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 39.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "2605C14000", "\u5f53\u524d\u4ef7": "\u00a51.20", "\u76c8\u4e8f%": "11.1%", "\u6301\u6709\u6570\u91cf": 8.0, "\u5f53\u524d(\u4e07)": 9.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$45.0", "\u76c8\u4e8f%": "3.4%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 32.6, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$17.60", "\u76c8\u4e8f%": "-28.5%", "\u6301\u6709\u6570\u91cf": 3000.0, "\u5f53\u524d(\u4e07)": 36.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": -1.3, "\u6536\u76ca(\u4e07)": -33.2, "\u6536\u76ca\u7387(%)": "-12.92%"}], "2026/3/27": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a572.76", "\u76c8\u4e8f%": "134.7%", "\u6301\u6709\u6570\u91cf": 16600.0, "\u5f53\u524d(\u4e07)": 120.8, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "\u00a516.3", "\u76c8\u4e8f%": "1.9%", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 40.8, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$47.1", "\u76c8\u4e8f%": "8.1%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 34.1, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$17.49", "\u76c8\u4e8f%": "-28.9%", "\u6301\u6709\u6570\u91cf": 3000.0, "\u5f53\u524d(\u4e07)": 36.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 18.0, "\u6536\u76ca(\u4e07)": -16.9, "\u6536\u76ca\u7387(%)": "-6.56%"}], "2026/3/28": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a573.02", "\u76c8\u4e8f%": "135.5%", "\u6301\u6709\u6570\u91cf": 16600.0, "\u5f53\u524d(\u4e07)": 121.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "16.7", "\u76c8\u4e8f%": "10.0%", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 44.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$47.7", "\u76c8\u4e8f%": "9.7%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 34.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$16.80", "\u76c8\u4e8f%": "-31.7%", "\u6301\u6709\u6570\u91cf": 2500.0, "\u5f53\u524d(\u4e07)": 29.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "SQQQ PUT", "\u5f53\u524d\u4ef7": "11.32", "\u76c8\u4e8f%": "13.2%", "\u6301\u6709\u6570\u91cf": 800.0, "\u5f53\u524d(\u4e07)": 6.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 20.0, "\u6536\u76ca(\u4e07)": -6.3, "\u6536\u76ca\u7387(%)": "-8.5%"}], "2026/3/30": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a573.23", "\u76c8\u4e8f%": "136.2%", "\u6301\u6709\u6570\u91cf": 14000.0, "\u5f53\u524d(\u4e07)": 102.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "16.7", "\u76c8\u4e8f%": "0.0%", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 35.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$47.7", "\u76c8\u4e8f%": "9.5%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 34.5, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$16.80", "\u76c8\u4e8f%": "-31.7%", "\u6301\u6709\u6570\u91cf": 2500.0, "\u5f53\u524d(\u4e07)": 29.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "SQQQ PUT", "\u5f53\u524d\u4ef7": "11.32", "\u76c8\u4e8f%": "13.2%", "\u6301\u6709\u6570\u91cf": 800.0, "\u5f53\u524d(\u4e07)": 6.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "LC2607 C18000", "\u5f53\u524d\u4ef7": "1.8", "\u76c8\u4e8f%": "-4.3%", "\u6301\u6709\u6570\u91cf": 8.0, "\u5f53\u524d(\u4e07)": 14.4, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "\u751f\u732a2609", "\u5f53\u524d\u4ef7": "1.2", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": 1.0, "\u5f53\u524d(\u4e07)": 1.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 30.0, "\u6536\u76ca(\u4e07)": -13.5, "\u6536\u76ca\u7387(%)": "-5.22%"}], "2026/3/31": [{"\u5e02\u573a": "CN", "\u516c\u53f8\u540d\u79f0": "\u4e2d\u77ff\u8d44\u6e90", "\u5f53\u524d\u4ef7": "\u00a574.32", "\u76c8\u4e8f%": "139.7%", "\u6301\u6709\u6570\u91cf": 14000.0, "\u5f53\u524d(\u4e07)": 104.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "FU", "\u516c\u53f8\u540d\u79f0": "LC2701", "\u5f53\u524d\u4ef7": "14.0", "\u76c8\u4e8f%": "-14.3%", "\u6301\u6709\u6570\u91cf": 5.0, "\u5f53\u524d(\u4e07)": 30.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "HK", "\u516c\u53f8\u540d\u79f0": "\u5929\u9f50\u9502\u4e1a", "\u5f53\u524d\u4ef7": "HK$46.1", "\u76c8\u4e8f%": "5.9%", "\u6301\u6709\u6570\u91cf": 8200.0, "\u5f53\u524d(\u4e07)": 33.3, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "US", "\u516c\u53f8\u540d\u79f0": "\u4f20\u5947\u751f\u7269", "\u5f53\u524d\u4ef7": "$17.31", "\u76c8\u4e8f%": "-29.6%", "\u6301\u6709\u6570\u91cf": 2500.0, "\u5f53\u524d(\u4e07)": 29.9, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "LC2607 C18000", "\u5f53\u524d\u4ef7": "1.2", "\u76c8\u4e8f%": "-32.1%", "\u6301\u6709\u6570\u91cf": 10.0, "\u5f53\u524d(\u4e07)": 12.2, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "OP", "\u516c\u53f8\u540d\u79f0": "SQQQ PUT", "\u5f53\u524d\u4ef7": "$9.0", "\u76c8\u4e8f%": "-10.0%", "\u6301\u6709\u6570\u91cf": 800.0, "\u5f53\u524d(\u4e07)": 5.0, "\u73b0\u91d1(\u4e07)": "", "\u6536\u76ca(\u4e07)": "", "\u6536\u76ca\u7387(%)": ""}, {"\u5e02\u573a": "\u6c47\u603b", "\u516c\u53f8\u540d\u79f0": "", "\u5f53\u524d\u4ef7": "", "\u76c8\u4e8f%": "", "\u6301\u6709\u6570\u91cf": "", "\u5f53\u524d(\u4e07)": "", "\u73b0\u91d1(\u4e07)": 20.0, "\u6536\u76ca(\u4e07)": -32.0, "\u6536\u76ca\u7387(%)": "-12.4%"}]};
         const arrowLength = 120;
         const showDetails = true;
         const defaultVisibleBars = 4;
         
+        // 0. Calendar Chart
+        const calendarChart = echarts.init(document.getElementById('calendarChart'));
+        const calendarData = dates.map(d => [d, 1]);
+        const allYears = dates.map(d => new Date(d).getFullYear());
+        const minYear = Math.min(...allYears);
+        const maxYear = Math.max(...allYears);
+        let currentDisplayedYear = maxYear;
+        
+        function updateCalendar(year) {
+            document.getElementById('prevYearBtn').style.visibility = (year > minYear) ? 'visible' : 'hidden';
+            document.getElementById('nextYearBtn').style.visibility = (year < maxYear) ? 'visible' : 'hidden';
+
+            // Generate trading days grid for the year
+            const gridData = [];
+            const months = ['12月', '11月', '10月', '9月', '8月', '7月', '6月', '5月', '4月', '3月', '2月', '1月'];
+            
+            for (let m = 0; m < 12; m++) {
+                let tradingDayIdx = 0;
+                const monthIdx = 11 - m; // 11 down to 0
+                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateObj = new Date(year, monthIdx, d);
+                    const dayOfWeek = dateObj.getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip Sat/Sun
+                    
+                    const dateStr = `${year}/${monthIdx + 1}/${d}`;
+                    const dateStrAlt = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const dateStrAlt2 = `${year}/${String(monthIdx + 1).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
+                    
+                    // Match multiple date formats in 'dates' array
+                    const isHighlight = dates.some(dt => dt === dateStr || dt === dateStrAlt || dt === dateStrAlt2);
+                    
+                    gridData.push([tradingDayIdx, m, d, isHighlight, dateStr]);
+                    tradingDayIdx++;
+                }
+            }
+
+            calendarChart.setOption({
+                title: { text: '交易日调仓日历 (' + year + ')', left: 'center', top: 0, textStyle: { color: '#8c2620', fontSize: 16 } },
+                tooltip: { 
+                    formatter: function (p) { 
+                        const d = p.value[4];
+                        return d + (p.value[3] ? '<br/><b>有记录 (点击查看详情)</b>' : '<br/>无记录');
+                    }
+                },
+                grid: { top: 50, bottom: 30, left: 70, right: 40, containLabel: true },
+                xAxis: { 
+                    type: 'category', 
+                    splitLine: { show: false }, 
+                    axisTick: { show: false },
+                    axisLine: { show: false },
+                    axisLabel: { show: false } 
+                },
+                yAxis: { 
+                    type: 'category', 
+                    data: months, 
+                    splitLine: { show: false },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#8c7355', fontWeight: 'bold', fontSize: 13 }
+                },
+                series: [{
+                    type: 'heatmap',
+                    data: gridData,
+                    label: {
+                        show: true,
+                        formatter: function(p) { return p.value[2]; },
+                        color: function(p) {
+                            return p.value[3] ? '#ffffff' : '#3b3126';
+                        },
+                        fontSize: 12
+                    },
+                    itemStyle: {
+                        borderColor: '#fffcf5',
+                        borderWidth: 2,
+                        borderRadius: 4,
+                        color: function(p) {
+                            return p.value[3] ? '#8c2620' : '#ede4d3';
+                        }
+                    },
+                    emphasis: {
+                        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' }
+                    }
+                }]
+            }, true);
+        }
+
+        window.changeYear = function(delta) {
+            currentDisplayedYear += delta;
+            updateCalendar(currentDisplayedYear);
+        };
+
+        updateCalendar(currentDisplayedYear);
+
+        calendarChart.on('click', function (params) {
+            const dateStr = params.value[4];
+            const actualDate = dates.find(d => {
+                const d1 = new Date(d).toDateString();
+                const d2 = new Date(dateStr).toDateString();
+                return d1 === d2;
+            });
+            
+            if (actualDate) {
+                showRebalanceDetail(actualDate);
+                const idx = dates.indexOf(actualDate);
+                if (idx !== -1) {
+                    stackChart.dispatchAction({
+                        type: 'dataZoom',
+                        startValue: Math.max(0, idx - 2),
+                        endValue: Math.min(dates.length - 1, idx + 2)
+                    });
+                }
+            }
+        });
+
         // Calculate dataZoom start percentage
         let zoomStart = 0;
         if (dates.length > defaultVisibleBars) {
@@ -350,38 +528,6 @@
             }]
         });
 
-        // Step Change Chart (Stacked)
-        const stepChart = echarts.init(document.getElementById('stepChart'));
-        stepChart.setOption({
-            title: { text: '调仓效果拆解', left: 'center', textStyle: { color: '#8c2620' } },
-            toolbox: {
-                right: 20,
-                feature: {
-                    saveAsImage: { title: '保存', name: '调仓效果拆解', pixelRatio: 2, iconStyle: { borderColor: '#8c2620' } }
-                }
-            },
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            legend: { bottom: '0', textStyle: { color: '#3b3126' } },
-            xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#8c7355' } } },
-            yAxis: { type: 'value', name: '万', axisLine: { lineStyle: { color: '#8c7355' } }, splitLine: { lineStyle: { type: 'dashed', color: '#d4c2a5' } } },
-            series: [
-                {
-                    name: '交易变动(调仓/买卖)',
-                    type: 'bar',
-                    stack: 'total',
-                    data: trades,
-                    itemStyle: { color: '#c07844' }
-                },
-                {
-                    name: '市场损益(股价变动)',
-                    type: 'bar',
-                    stack: 'total',
-                    data: marketFlucts,
-                    itemStyle: { color: (p) => p.value >= 0 ? '#4b6a53' : '#667863' }
-                }
-            ]
-        });
-
         // Market Pie Chart
         const marketChart = echarts.init(document.getElementById('marketChart'));
         marketChart.setOption({
@@ -480,6 +626,117 @@
             }]
         });
 
+        function showRebalanceDetail(date) {
+            const info = rebalanceInfo[date];
+            const panel = document.getElementById('rebalanceDetail');
+            if (!info) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+            document.getElementById('detailDate').innerText = `调仓对比 (${date})`;
+            document.getElementById('statVol').innerText = info.trade_vol;
+            document.getElementById('statTurn').innerText = info.turnover;
+            
+            const effSpan = document.getElementById('statEff');
+            effSpan.innerText = (info.efficiency > 0 ? "+" : "") + info.efficiency;
+            effSpan.className = info.efficiency >= 0 ? "val-up" : "val-down";
+
+            const prevDate = info.prev_date;
+            document.getElementById('prevDateTitle').innerText = `上期持仓 (${prevDate})`;
+            document.getElementById('currDateTitle').innerText = `当期持仓 (${date})`;
+
+            renderTable('prev', daySnapshots[prevDate]);
+            renderTable('curr', daySnapshots[date]);
+            
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function renderTable(prefix, data) {
+            const head = document.getElementById(prefix + 'Head');
+            const body = document.getElementById(prefix + 'Body');
+            head.innerHTML = '';
+            body.innerHTML = '';
+            if (!data || data.length === 0) return;
+
+            const numericCols = ['当前价', '盈亏%', '持有数量', '当前(万)', '现金(万)', '收益(万)', '收益率(%)'];
+
+            // Generate header
+            const displayCols = Object.keys(data[0]).filter(c => !['收益(万)', '收益率(%)', '现金(万)'].includes(c));
+            const trH = document.createElement('tr');
+            displayCols.forEach(c => {
+                const th = document.createElement('th');
+                th.innerText = c;
+                if (numericCols.includes(c)) th.className = 'text-right';
+                trH.appendChild(th);
+            });
+            head.appendChild(trH);
+
+            // Generate body: Assets first
+            data.forEach(row => {
+                if (row['公司名称'] === '汇总' || row['市场'] === '汇总') return; // Skip original summary row
+                
+                const tr = document.createElement('tr');
+                displayCols.forEach(c => {
+                    const td = document.createElement('td');
+                    let val = row[c];
+                    if (typeof val === 'number') val = val.toFixed(2);
+                    td.innerText = val;
+                    if (numericCols.includes(c)) td.className = 'text-right';
+                    
+                    if (c === '盈亏%' && val) {
+                        if (val.toString().includes('-')) td.classList.add('val-down');
+                        else if (parseFloat(val) > 0) td.classList.add('val-up');
+                    }
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+
+            // Append Summary Rows at the bottom
+            const sumRow = data.find(r => r['公司名称'] === '汇总' || r['市场'] === '汇总');
+            if (sumRow) {
+                const sumMetrics = [
+                    { label: '现金总计', key: '现金(万)', unit: '万' },
+                    { label: '当期收益', key: '收益(万)', unit: '万' },
+                    { label: '当期收益率', key: '收益率(%)', unit: '' }
+                ];
+                
+                sumMetrics.forEach(m => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'row-summary';
+                    
+                    const tdLabel = document.createElement('td');
+                    tdLabel.innerText = m.label;
+                    tdLabel.style.textAlign = 'left';
+                    tdLabel.style.paddingRight = '20px';
+                    tr.appendChild(tdLabel);
+                    
+                    const tdVal = document.createElement('td');
+                    tdVal.colSpan = displayCols.length - 1;
+                    tdVal.className = 'text-right';
+                    let val = sumRow[m.key] || '0';
+                    tdVal.innerText = val + (m.unit ? ' ' + m.unit : '');
+                    
+                    if (m.key.includes('收益')) {
+                        if (val.toString().includes('-')) tdVal.classList.add('val-down');
+                        else if (parseFloat(val) > 0) tdVal.classList.add('val-up');
+                    }
+                    tr.appendChild(tdVal);
+                    body.appendChild(tr);
+                });
+            }
+        }
+
+        stackChart.on('click', function(params) {
+            if (params.name) showRebalanceDetail(params.name);
+        });
+        
+        trendChart.on('click', function(params) {
+            if (params.name) showRebalanceDetail(params.name);
+        });
+
         // Listen to dataZoom event to recalculate arrow positions when zooming or panning
         let zoomTimeout;
         stackChart.on('dataZoom', function () {
@@ -493,7 +750,6 @@
             stackChart.resize();
             updateMarks();
             trendChart.resize();
-            stepChart.resize();
             marketChart.resize();
             assetChart.resize();
         });
