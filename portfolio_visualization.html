@@ -54,7 +54,7 @@
                 <button id="prevYearBtn" class="nav-btn" onclick="changeYear(-1)">← 上一年</button>
                 <button id="nextYearBtn" class="nav-btn" onclick="changeYear(1)">下一年 →</button>
             </div>
-            <div id="calendarChart" style="width: 100%; height: 160px; margin-bottom: 20px;"></div>
+            <div id="calendarChart" style="width: 100%; height: 180px; margin-bottom: 20px;"></div>
         </div>
 
         <div id="rebalanceDetail" class="detail-panel" style="margin-bottom: 40px;">
@@ -166,11 +166,20 @@
 
                     // Add month marker if month changes
                     if (m !== lastMonth) {
+                        // Calculate week position proportionally to the 90% grid width
+                        let leftPos = 6 + (weekIdx / 53 * 90);
+                        if (m === 11) leftPos -= 1; // Slight nudge for Dec
+                        
                         monthMarkers.push({
                             type: 'text',
-                            left: (weekIdx * 1.88 + 4) + '%',
-                            top: '5%',
-                            style: { text: (m + 1) + '月', fill: '#8c7355', font: '11px "Noto Serif SC"' }
+                            left: leftPos + '%',
+                            top: 40, // Pixel position above the grid
+                            z: 100,
+                            style: { 
+                                text: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m], 
+                                fill: '#8c7355', 
+                                font: 'bold 11px "Noto Serif SC"' 
+                            }
                         });
                         lastMonth = m;
                     }
@@ -179,16 +188,16 @@
             }
 
             calendarChart.setOption({
-                title: { text: '年度调仓贡献墙 (' + year + ')', left: 'center', top: 0, textStyle: { color: '#8c2620', fontSize: 14 } },
+                title: { text: 'Annual Rebalancing Heatmap (' + year + ')', left: 'center', top: 5, textStyle: { color: '#8c2620', fontSize: 14 } },
                 tooltip: { 
                     show: true,
-                    formatter: function (p) { return p.value[4] + (p.value[3] ? ' (有记录)' : ''); }
+                    formatter: function (p) { return p.value[4] + (p.value[3] ? ' (Recorded)' : ''); }
                 },
-                grid: { top: 35, bottom: 20, left: 45, right: 15 },
+                grid: { top: 65, bottom: 15, left: '6%', right: '4%' },
                 xAxis: { type: 'category', show: false },
                 yAxis: { 
                     type: 'category', 
-                    data: ['一', '二', '三', '四', '五'], 
+                    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], 
                     inverse: true,
                     axisLine: { show: false },
                     axisTick: { show: false },
