@@ -12,10 +12,8 @@ def normalize_amount(s: str) -> str:
         return ''
     # remove surrounding parentheses or stray commas
     s = s.replace(',', '').replace('，', '')
-    # if value ends with 万, drop the unit (assets.csv stores amounts in 万)
-    if s.endswith('万'):
-        s = s[:-1]
-    # if value contains '万' in middle like '16.0万', already handled
+    # remove '万' unit
+    s = s.replace('万', '')
     return s
 
 
@@ -138,12 +136,12 @@ def convert_and_append(raw_path: str, assets_path: str):
                 today,
                 d.get('市场',''),
                 d.get('公司名称',''),
-                d.get('成本价',''),
-                d.get('当前价',''),
-                d.get('pos/cost',''),
-                d.get('pos/curr',''),
+                normalize_amount(d.get('成本价','')),
+                normalize_amount(d.get('当前价','')),
+                normalize_amount(d.get('pos/cost','')),
+                normalize_amount(d.get('pos/curr','')),
                 d.get('盈亏%',''),
-                d.get('持有数量',''),
+                normalize_amount(d.get('持有数量','')),
                 normalize_amount(d.get('投入','')),
                 normalize_amount(d.get('当前','')),
                 '',

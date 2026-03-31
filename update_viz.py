@@ -116,6 +116,7 @@ def generate_html():
     latest_assets = latest_df[latest_df['公司名称'].notna() & (latest_df['公司名称'] != '汇总')]
     
     market_dist = {}
+    market_to_assets = {}
     asset_dist = []
     
     total_val = totals[latest_date]
@@ -129,13 +130,32 @@ def generate_html():
             val = 0.0
         
         market_dist[market] = market_dist.get(market, 0.0) + val
+        if market not in market_to_assets:
+            market_to_assets[market] = []
+        market_to_assets[market].append({"name": name, "value": val})
         asset_dist.append((name, val))
     
     # Add cash to market dist
     c = cash.get(latest_date, 0.0)
     if c > 0:
         market_dist['现金'] = c
+        market_to_assets['现金'] = [{"name": "现金", "value": c}]
     
+    # Calculate detailed assets for each market
+    chart_market_details = {}
+    for market, assets in market_to_assets.items():
+        m_total = market_dist[market]
+        detailed_assets = []
+        for a in sorted(assets, key=lambda x: x['value'], reverse=True):
+            if a['value'] > 0:
+                p = (a['value'] / m_total * 100) if m_total > 0 else 0
+                detailed_assets.append({
+                    "name": a['name'],
+                    "value": round(a['value'], 1),
+                    "percent": round(p, 1)
+                })
+        chart_market_details[market] = detailed_assets
+
     # Prepare data for charts
     chart_dates = dates
     chart_totals = [round(totals[d], 1) for d in dates]
@@ -326,6 +346,7 @@ def generate_html():
         const trades = {json.dumps(trade_contributions)};
         const marketFlucts = {json.dumps(market_contributions)};
         const marketData = {json.dumps(chart_market_data)};
+        const marketDetails = {json.dumps(chart_market_details)};
         const assetData = {json.dumps(chart_asset_data)};
         const stackedSeries = {json.dumps(stacked_series)};
         const arrowData = {json.dumps(arrow_data)};
@@ -671,7 +692,27 @@ def generate_html():
                     saveAsImage: {{ title: '保存', name: '市场分布', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
                 }}
             }},
-            tooltip: {{ trigger: 'item', formatter: '{{b}}: {{c}}万 ({{d}}%)' }},
+            tooltip: {{ 
+                trigger: 'item', 
+                backgroundColor: 'rgba(59, 49, 38, 0.9)',
+                borderColor: '#d4c2a5',
+                textStyle: {{ color: '#fffcf5' }},
+                formatter: function(params) {{
+                    let market = params.name;
+                    let total = params.value;
+                    let percent = params.percent;
+                    let details = marketDetails[market] || [];
+                    
+                    let res = `<div style="border-bottom: 1px solid rgba(255,255,255,.3); font-weight: bold; margin-bottom: 5px; padding-bottom: 5px;">${{market}}: ${{total}}万 (${{percent}}%)</div>`;
+                    details.forEach(item => {{
+                        res += `<div style="display: flex; justify-content: space-between; gap: 20px; font-size: 12px; margin-top: 2px;">
+                                    <span>${{item.name}}</span>
+                                    <span>${{item.value}}万 (${{item.percent}}%)</span>
+                                </div>`;
+                    }});
+                    return res;
+                }}
+            }},
             legend: {{ 
                 bottom: '0', 
                 textStyle: {{ color: '#3b3126' }},
