@@ -385,7 +385,7 @@ def generate_html():
                 <button id="prevYearBtn" class="nav-btn" onclick="changeYear(-1)">← 上一年</button>
                 <button id="nextYearBtn" class="nav-btn" onclick="changeYear(1)">下一年 →</button>
             </div>
-            <div id="calendarChart" style="width: 100%; height: 400px;"></div>
+            <div id="calendarChart" style="width: 100%; height: 160px; margin-bottom: 20px;"></div>
         </div>
 
         <div id="rebalanceDetail" class="detail-panel" style="margin-bottom: 40px;">
@@ -460,77 +460,83 @@ def generate_html():
             document.getElementById('prevYearBtn').style.visibility = (year > minYear) ? 'visible' : 'hidden';
             document.getElementById('nextYearBtn').style.visibility = (year < maxYear) ? 'visible' : 'hidden';
 
-            // Generate trading days grid for the year
-            const gridData = [];
-            const months = ['12月', '11月', '10月', '9月', '8月', '7月', '6月', '5月', '4月', '3月', '2月', '1月'];
+            const graphData = [];
+            const monthMarkers = [];
+            let lastMonth = -1;
+
+            // Start from Jan 1st of the year
+            const start = new Date(year, 0, 1);
+            const end = new Date(year, 11, 31);
             
-            for (let m = 0; m < 12; m++) {{
-                let tradingDayIdx = 0;
-                const monthIdx = 11 - m; // 11 down to 0
-                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-                for (let d = 1; d <= daysInMonth; d++) {{
-                    const dateObj = new Date(year, monthIdx, d);
-                    const dayOfWeek = dateObj.getDay();
-                    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip Sat/Sun
-                    
-                    const dateStr = `${{year}}/${{monthIdx + 1}}/${{d}}`;
-                    const dateStrAlt = `${{year}}-${{String(monthIdx + 1).padStart(2, '0')}}-${{String(d).padStart(2, '0')}}`;
-                    const dateStrAlt2 = `${{year}}/${{String(monthIdx + 1).padStart(2, '0')}}/${{String(d).padStart(2, '0')}}`;
-                    
-                    // Match multiple date formats in 'dates' array
+            // Find the first Monday to align weeks
+            let current = new Date(start);
+            // github style usually starts from Sunday (0) or Monday (1). 
+            // We'll align to weeks based on current.
+            
+            let dayIdx = 0;
+            while (current <= end) {{
+                const dayOfWeek = current.getDay(); // 0 (Sun) to 6 (Sat)
+                
+                // Skip Sat/Sun
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {{
+                    const m = current.getMonth();
+                    const d = current.getDate();
+                    const dateStr = `${{year}}/${{m + 1}}/${{d}}`;
+                    const dateStrAlt = `${{year}}-${{String(m + 1).padStart(2, '0')}}-${{String(d).padStart(2, '0')}}`;
+                    const dateStrAlt2 = `${{year}}/${{String(m + 1).padStart(2, '0')}}/${{String(d).padStart(2, '0')}}`;
                     const isHighlight = dates.some(dt => dt === dateStr || dt === dateStrAlt || dt === dateStrAlt2);
                     
-                    gridData.push([tradingDayIdx, m, d, isHighlight, dateStr]);
-                    tradingDayIdx++;
+                    // x: Week number since start of year, y: Day of week (0-4 for Mon-Fri)
+                    // Calculate week number based on total days elapsed
+                    const firstDayOfYear = new Date(year, 0, 1);
+                    const pastDays = Math.floor((current - firstDayOfYear) / (24 * 60 * 60 * 1000));
+                    const weekIdx = Math.floor((pastDays + (firstDayOfYear.getDay() + 6) % 7) / 7);
+                    const yIdx = dayOfWeek - 1; // 0=Mon, 4=Fri
+
+                    graphData.push([weekIdx, yIdx, d, isHighlight, dateStr]);
+
+                    // Add month marker if month changes
+                    if (m !== lastMonth) {{
+                        monthMarkers.push({{
+                            type: 'text',
+                            left: (weekIdx * 1.88 + 4) + '%',
+                            top: '5%',
+                            style: {{ text: (m + 1) + '月', fill: '#8c7355', font: '11px "Noto Serif SC"' }}
+                        }});
+                        lastMonth = m;
+                    }}
                 }}
+                current.setDate(current.getDate() + 1);
             }}
 
             calendarChart.setOption({{
-                title: {{ text: '交易日调仓日历 (' + year + ')', left: 'center', top: 0, textStyle: {{ color: '#8c2620', fontSize: 16 }} }},
+                title: {{ text: '年度调仓贡献墙 (' + year + ')', left: 'center', top: 0, textStyle: {{ color: '#8c2620', fontSize: 14 }} }},
                 tooltip: {{ 
-                    formatter: function (p) {{ 
-                        const d = p.value[4];
-                        return d + (p.value[3] ? '<br/><b>有记录 (点击查看详情)</b>' : '<br/>无记录');
-                    }}
+                    show: true,
+                    formatter: function (p) {{ return p.value[4] + (p.value[3] ? ' (有记录)' : ''); }}
                 }},
-                grid: {{ top: 50, bottom: 30, left: 70, right: 40, containLabel: true }},
-                xAxis: {{ 
-                    type: 'category', 
-                    splitLine: {{ show: false }}, 
-                    axisTick: {{ show: false }},
-                    axisLine: {{ show: false }},
-                    axisLabel: {{ show: false }} 
-                }},
+                grid: {{ top: 35, bottom: 20, left: 45, right: 15 }},
+                xAxis: {{ type: 'category', show: false }},
                 yAxis: {{ 
                     type: 'category', 
-                    data: months, 
-                    splitLine: {{ show: false }},
+                    data: ['一', '二', '三', '四', '五'], 
+                    inverse: true,
                     axisLine: {{ show: false }},
                     axisTick: {{ show: false }},
-                    axisLabel: {{ color: '#8c7355', fontWeight: 'bold', fontSize: 13 }}
+                    axisLabel: {{ color: '#8c7355', fontSize: 10, margin: 10 }}
                 }},
+                graphic: monthMarkers,
                 series: [{{
                     type: 'heatmap',
-                    data: gridData,
-                    label: {{
-                        show: true,
-                        formatter: function(p) {{ return p.value[2]; }},
-                        color: function(p) {{
-                            return p.value[3] ? '#ffffff' : '#3b3126';
-                        }},
-                        fontSize: 12
-                    }},
+                    data: graphData,
                     itemStyle: {{
-                        borderColor: '#fffcf5',
+                        borderColor: '#ffffff',
                         borderWidth: 2,
-                        borderRadius: 4,
-                        color: function(p) {{
-                            return p.value[3] ? '#8c2620' : '#ede4d3';
-                        }}
+                        borderRadius: 2,
+                        color: function(p) {{ return p.value[3] ? '#8c2620' : '#ebedf0'; }}
                     }},
-                    emphasis: {{
-                        itemStyle: {{ shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' }}
-                    }}
+                    // Remove emphasis/hover style entirely
+                    emphasis: {{ disabled: true }}
                 }}]
             }}, true);
         }}
