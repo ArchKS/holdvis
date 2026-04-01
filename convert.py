@@ -1,6 +1,7 @@
 import csv
 import os
 import shutil
+import re
 from datetime import datetime
 
 
@@ -28,10 +29,30 @@ def read_assets_header(assets_path: str):
 
 def parse_raw(raw_path: str):
     with open(raw_path, 'r', encoding='utf-8') as f:
-        lines = [l.rstrip('\n') for l in f if l.strip()]
+        content = f.read()
+        lines = [l.rstrip('\n') for l in content.splitlines() if l.strip()]
 
     if not lines:
-        return [], None
+        return [], None, None
+
+    # Extract summary info
+    summary = {
+        'cash': '',
+        'profit': '',
+        'profit_rate': ''
+    }
+    
+    cash_match = re.search(r'现金\s+银行\s+A股.*?\n\s*([\-\.\d]+)', content)
+    if cash_match:
+        summary['cash'] = cash_match.group(1)
+        
+    profit_match = re.search(r'收益\s+([\-\.\d]+)万', content)
+    if profit_match:
+        summary['profit'] = profit_match.group(1)
+        
+    profit_rate_match = re.search(r'收益率\s+([\-\.\d]+%)', content)
+    if profit_rate_match:
+        summary['profit_rate'] = profit_rate_match.group(1)
 
     # check first line for date (e.g., 2026/3/30)
     potential_date = lines[0].strip()
@@ -85,27 +106,30 @@ def parse_raw(raw_path: str):
     for parts in rows[data_start:]:
         if not parts:
             continue
+        # stop parsing actual rows when encountering the "现金" summary section
+        if parts[0] == '现金' or parts[0] == '年初':
+            break
         # skip summary rows
-        if any('汇总' in p for p in parts):
+        if any('汇总' in p or '总计' in p for p in parts):
             continue
         # build dict from names
         data = {names[i]: parts[i] if i < len(parts) else '' for i in range(len(names))}
         parsed.append(data)
 
-    return parsed, file_date
+    return parsed, file_date, summary
 
 
 def convert_and_append(raw_path: str, assets_path: str):
     # backup
-    bak_path = assets_path + '.bak.' + datetime.now().strftime('%Y%m%d%H%M%S')
-    shutil.copy2(assets_path, bak_path)
+    # bak_path = assets_path + '.bak.' + datetime.now().strftime('%Y%m%d%H%M%S')
+    # shutil.copy2(assets_path, bak_path)
 
     header = read_assets_header(assets_path)
     if not header:
         # default header if assets file empty
         header = ['日期','市场','公司名称','成本价','当前价','pos/cost','pos/curr','盈亏%','持有数量','投入(万)','当前(万)','现金(万)','收益(万)','收益率(%)']
 
-    parsed, file_date = parse_raw(raw_path)
+    parsed, file_date, summary = parse_raw(raw_path)
     if not parsed:
         print('No data found in raw file.')
         return
@@ -130,7 +154,7 @@ def convert_and_append(raw_path: str, assets_path: str):
         writer = csv.writer(fout)
         for d in parsed:
             name = d.get('公司名称', '')
-            if not name or name.startswith('汇总'):
+            if not name or name.startswith('汇总') or name.startswith('总计') or name.startswith('现金'):
                 continue
             row = [
                 today,
@@ -152,10 +176,25 @@ def convert_and_append(raw_path: str, assets_path: str):
             if len(row) < len(header):
                 row += [''] * (len(header) - len(row))
             writer.writerow(row)
+            
+        # Write summary row
+        if summary['cash'] or summary['profit'] or summary['profit_rate']:
+            summary_row = [
+                today,
+                '汇总',
+                '', '', '', '', '', '', '', '', '',
+                summary['cash'],
+                summary['profit'],
+                summary['profit_rate']
+            ]
+            if len(summary_row) < len(header):
+                summary_row += [''] * (len(header) - len(summary_row))
+            writer.writerow(summary_row)
+            
         # Add an empty line after the block
         fout.write('\n')
 
-    print(f'Appended {len(parsed)} rows to {assets_path} (date: {today}, backup at {bak_path})')
+    print(f'Appended {len(parsed)} rows to {assets_path} (date: {today})')
 
 
 if __name__ == '__main__':

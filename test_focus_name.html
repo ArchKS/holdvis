@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div id="main" style="width: 600px;height:400px;"></div>
+    <script>
+        var chart = echarts.init(document.getElementById('main'));
+        var option = {
+            xAxis: { type: 'category', data: ['D1', 'D2'] },
+            yAxis: { type: 'value' },
+            series: [{
+                type: 'bar', stack: 'T',
+                emphasis: { focus: 'self' },
+                blur: { itemStyle: { opacity: 0.1 } },
+                data: [{name: 'A', value: 10, itemStyle: {color:'red'}}, {name: 'B', value: 20, itemStyle: {color:'blue'}}]
+            }, {
+                type: 'bar', stack: 'T',
+                emphasis: { focus: 'self' },
+                blur: { itemStyle: { opacity: 0.1 } },
+                data: [{name: 'B', value: 30, itemStyle: {color:'blue'}}, {name: 'A', value: 10, itemStyle: {color:'red'}}]
+            }]
+        };
+        chart.setOption(option);
+        chart.on('mouseover', function(p) {
+            chart.dispatchAction({
+                type: 'highlight',
+                name: p.data.name
+            });
+        });
+        chart.on('mouseout', function(p) {
+            chart.dispatchAction({
+                type: 'downplay'
+            });
+        });
+    </script>
+</body>
+</html>

@@ -236,55 +236,47 @@ def generate_html():
         chart_asset_data.append({"name": "现金", "value": round(latest_cash, 1)})
         chart_asset_data = sorted(chart_asset_data, key=lambda x: x['value'], reverse=True)
     
-    # Prepare Stacked Bar Data
-    all_series_data = []
+    # Prepare Stacked Bar Data (Per-bar sorting: Largest at the bottom)
+    # We create series by "Rank" (Rank 1 is bottom, Rank 2 is next...)
+    # This allows each bar to be sorted independently.
     
-    # Calculate average values including cash
-    all_items_to_sort = []
-    for name in all_asset_names:
-        avg = sum(asset_data[name].get(d, {}).get('val', 0) for d in dates) / len(dates)
-        all_items_to_sort.append({'name': name, 'avg': avg, 'is_cash': False})
-    
-    avg_cash = sum(cash.get(d, 0) for d in dates) / len(dates)
-    all_items_to_sort.append({'name': '现金', 'avg': avg_cash, 'is_cash': True})
-    
-    # Sort: Largest average value at the bottom (first in the series list)
-    sorted_items = sorted(all_items_to_sort, key=lambda x: x['avg'], reverse=True)
-    
+    # Prepare Stacked Bar Data (One series per asset - Fixed order)
+    color_palette = ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6']
+    name_to_color = {}
+    for i, name in enumerate(all_asset_names + ['现金']):
+        name_to_color[name] = color_palette[i % len(color_palette)]
+
     stacked_series = []
-    for item in sorted_items:
-        name = item['name']
-        data_over_time = []
-        
-        if item['is_cash']:
-            for d in dates:
-                val = round(cash.get(d, 0.0), 1)
-                total_day = totals.get(d, 0)
-                ratio = val / total_day if total_day > 0 else 0
-                data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": 0, "ratio": ratio, "is_new": False})
-        else:
-            prev_qty = 0
-            for d in dates:
-                val = round(asset_data[name].get(d, {}).get('val', 0), 1)
-                qty = asset_data[name].get(d, {}).get('qty', 0)
-                total_day = totals.get(d, 0)
-                ratio = val / total_day if total_day > 0 else 0
-                is_new = bool(prev_qty == 0 and qty > 0)
-                prev_qty = qty
-                data_over_time.append({"value": val if ratio >= hide_threshold else None, "qty": qty, "ratio": ratio, "is_new": is_new})
+    for name in all_asset_names + ['现金']:
+        data_for_asset = []
+        for d in dates:
+            if name == '现金':
+                val = cash.get(d, 0.0)
+                qty = 0
+            else:
+                info = asset_data.get(name, {}).get(d, {})
+                val = info.get('val', 0.0)
+                qty = info.get('qty', 0)
             
-        if any(i["value"] is not None for i in data_over_time):
-            s_obj = {
-                "name": name,
-                "type": "bar",
-                "stack": "Total",
-                "emphasis": {"focus": "series"},
-                "label": {"show": True},
-                "data": data_over_time
-            }
-            if not item['is_cash']:
-                s_obj["label"]["rich"] = {"qty": {"fontSize": 11, "color": "#eee"}}
-            stacked_series.append(s_obj)
+            if val > 0:
+                data_for_asset.append({
+                    "name": name,
+                    "value": round(val, 1),
+                    "qty": qty,
+                    "ratio": val / totals[d] if totals[d] > 0 else 0,
+                    "itemStyle": {"color": name_to_color[name], "borderColor": "#fffcf5", "borderWidth": 1}
+                })
+            else:
+                data_for_asset.append({"value": None})
+        
+        stacked_series.append({
+            "name": name,
+            "type": "bar",
+            "stack": "Total",
+            "emphasis": {"focus": "series"},
+            "label": {"show": True},
+            "data": data_for_asset
+        })
 
     arrow_data = []
     # Use the names from asset_data for arrow calculations
@@ -462,22 +454,17 @@ def generate_html():
 
             const graphData = [];
             const monthMarkers = [];
+            const monthStartWeeks = [];
             let lastMonth = -1;
 
             // Start from Jan 1st of the year
             const start = new Date(year, 0, 1);
             const end = new Date(year, 11, 31);
             
-            // Find the first Monday to align weeks
             let current = new Date(start);
-            // github style usually starts from Sunday (0) or Monday (1). 
-            // We'll align to weeks based on current.
-            
-            let dayIdx = 0;
             while (current <= end) {{
-                const dayOfWeek = current.getDay(); // 0 (Sun) to 6 (Sat)
+                const dayOfWeek = current.getDay(); 
                 
-                // Skip Sat/Sun
                 if (dayOfWeek !== 0 && dayOfWeek !== 6) {{
                     const m = current.getMonth();
                     const d = current.getDate();
@@ -486,28 +473,25 @@ def generate_html():
                     const dateStrAlt2 = `${{year}}/${{String(m + 1).padStart(2, '0')}}/${{String(d).padStart(2, '0')}}`;
                     const isHighlight = dates.some(dt => dt === dateStr || dt === dateStrAlt || dt === dateStrAlt2);
                     
-                    // x: Week number since start of year, y: Day of week (0-4 for Mon-Fri)
-                    // Calculate week number based on total days elapsed
                     const firstDayOfYear = new Date(year, 0, 1);
                     const pastDays = Math.floor((current - firstDayOfYear) / (24 * 60 * 60 * 1000));
                     const weekIdx = Math.floor((pastDays + (firstDayOfYear.getDay() + 6) % 7) / 7);
-                    const yIdx = dayOfWeek - 1; // 0=Mon, 4=Fri
+                    const yIdx = dayOfWeek - 1; 
 
-                    graphData.push([weekIdx, yIdx, d, isHighlight, dateStr]);
+                    graphData.push([weekIdx, yIdx, d, isHighlight, dateStr, m]);
 
-                    // Add month marker if month changes
                     if (m !== lastMonth) {{
-                        // Calculate week position proportionally to the 90% grid width
+                        monthStartWeeks.push(weekIdx);
                         let leftPos = 6 + (weekIdx / 53 * 90);
-                        if (m === 11) leftPos -= 1; // Slight nudge for Dec
+                        if (m === 11) leftPos -= 1; 
                         
                         monthMarkers.push({{
                             type: 'text',
                             left: leftPos + '%',
-                            top: 40, // Pixel position above the grid
+                            top: 40,
                             z: 100,
                             style: {{ 
-                                text: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m], 
+                                text: (m + 1) + '月', 
                                 fill: '#8c7355', 
                                 font: 'bold 11px "Noto Serif SC"' 
                             }}
@@ -519,7 +503,7 @@ def generate_html():
             }}
 
             calendarChart.setOption({{
-                title: {{ text: 'Annual Rebalancing Heatmap (' + year + ')', left: 'center', top: 5, textStyle: {{ color: '#8c2620', fontSize: 14 }} }},
+                title: {{ text: '年度调仓记录 (' + year + ')', left: 'center', top: 5, textStyle: {{ color: '#8c2620', fontSize: 14 }} }},
                 tooltip: {{ 
                     show: true,
                     formatter: function (p) {{ return p.value[4] + (p.value[3] ? ' (Recorded)' : ''); }}
@@ -542,9 +526,12 @@ def generate_html():
                         borderColor: '#ffffff',
                         borderWidth: 2,
                         borderRadius: 2,
-                        color: function(p) {{ return p.value[3] ? '#8c2620' : '#ebedf0'; }}
+                        color: function(p) {{ 
+                            if (p.value[3]) return '#8c2620';
+                            // Alternate background colors to distinguish months
+                            return p.value[5] % 2 === 0 ? '#ebedf0' : '#f6f8fa';
+                        }}
                     }},
-                    // Remove emphasis/hover style entirely
                     emphasis: {{ disabled: true }}
                 }}]
             }}, true);
@@ -592,11 +579,12 @@ def generate_html():
         dates.forEach((d, dIdx) => {{
             let currentY = 0;
             stackedSeries.forEach(s => {{
-                if (!yCenters[s.name]) yCenters[s.name] = {{}};
                 let item = s.data[dIdx];
                 let val = item && item.value ? item.value : 0;
                 if (val > 0) {{
-                    yCenters[s.name][d] = currentY + val / 2;
+                    // Use actual asset name from data point
+                    if (!yCenters[item.name]) yCenters[item.name] = {{}};
+                    yCenters[item.name][d] = currentY + val / 2;
                     currentY += val;
                 }}
             }});
@@ -620,12 +608,13 @@ def generate_html():
                 textStyle: {{ color: '#fffcf5' }},
                 formatter: function (params) {{
                     if (!params.data || !params.data.value) return '';
+                    let name = params.data.name || params.seriesName;
                     let qtyStr = params.data.qty ? '<br/>持股: ' + params.data.qty : '';
                     let ratioStr = params.data.ratio ? '<br/>占比: ' + (params.data.ratio * 100).toFixed(1) + '%' : '';
-                    return params.seriesName + '<br/>市值: ' + params.data.value + '万' + qtyStr + ratioStr;
+                    return name + '<br/>市值: ' + params.data.value + '万' + qtyStr + ratioStr;
                 }}
             }},
-            legend: {{ top: 30,left:100, type: 'scroll', textStyle: {{ color: '#3b3126', fontWeight: 600 }} }},
+            legend: {{ show: false }}, // Hide as names are Rank 1, 2...
             grid: {{ left: '3%', right: '4%', bottom: '10%', containLabel: true }},
             dataZoom: [
                 {{
@@ -655,7 +644,7 @@ def generate_html():
                         borderColor: '#8c7355',
                         borderWidth: 2,
                         shadowBlur: 3,
-                        shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        shadowColor: 'red',
                         shadowOffsetX: 1,
                         shadowOffsetY: 1
                     }},
@@ -679,37 +668,18 @@ def generate_html():
                 s.barWidth = '{chart_cfg['barWidth']}';
                 s.barGap = '{chart_cfg['barGap']}';
                 
-                s.data = s.data.map(item => {{
-                    if (item) {{
-                        return {{
-                            ...item,
-                            itemStyle: {{ borderColor: '#fffcf5', borderWidth: 1 }}
-                        }};
-                    }}
-                    return item;
-                }});
-
-                if (s.name !== "现金") {{
-                    s.label.formatter = function(params) {{
-                        if (!params.data || !params.data.value) return '';
-                        let ratio = (params.data.ratio * 100).toFixed(1) + '%';
-                        if (params.data.ratio < {label_threshold}) return params.seriesName;
-                        if (!showDetails) return params.seriesName + ' (' + ratio + ')';
-                        let qty = params.data.qty;
-                        return params.seriesName + ' (' + ratio + ')\\n' + params.data.value + '万 | ' + qty + '股';
-                    }};
-                    s.label.rich = {{}};
-                    s.label.fontSize = {chart_cfg['labelFontSize']};
-                }} else {{
-                    s.label.formatter = function(params) {{
-                        if (!params.data || !params.data.value) return '';
-                        let ratio = (params.data.ratio * 100).toFixed(1) + '%';
-                        if (params.data.ratio < {label_threshold}) return params.seriesName;
-                        if (!showDetails) return params.seriesName + ' (' + ratio + ')';
-                        return params.seriesName + ' (' + ratio + ')\\n' + params.data.value + '万';
-                    }};
-                    s.label.fontSize = {chart_cfg['labelFontSize']};
-                }}
+                s.label.formatter = function(params) {{
+                    if (!params.data || !params.data.value) return '';
+                    let name = params.data.name || "";
+                    let ratio = (params.data.ratio * 100).toFixed(1) + '%';
+                    if (params.data.ratio < {label_threshold}) return name;
+                    if (!showDetails) return name + ' (' + ratio + ')';
+                    let qty = params.data.qty;
+                    let qtyLine = name !== "现金" ? ('\\n' + params.data.value + '万 | ' + qty + '股') : ('\\n' + params.data.value + '万');
+                    return name + ' (' + ratio + ')' + qtyLine;
+                }};
+                s.label.rich = {{}};
+                s.label.fontSize = {chart_cfg['labelFontSize']};
                 return s;
             }})
         }};
@@ -968,7 +938,7 @@ def generate_html():
                     fontSize: 11
                 }},
                 labelLine: {{ show: true, length: 15, length2: 10 }},
-                emphasis: {{ itemStyle: {{ shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' }} }}
+                emphasis: {{ itemStyle: {{ shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'blue' }} }}
             }}]
         }});
 
