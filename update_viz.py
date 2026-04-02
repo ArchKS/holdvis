@@ -296,6 +296,7 @@ def generate_html():
                     "d2": d2,
                     "qty_diff": curr['qty'],
                     "trade_val": curr['val'],
+                    "ratio_diff": curr['val'] / totals[d2] if totals[d2] > 0 else 0,
                     "is_new": True,
                     "is_liquidation": False
                 })
@@ -306,6 +307,7 @@ def generate_html():
                     "d2": d2,
                     "qty_diff": -prev['qty'],
                     "trade_val": -prev['val'],
+                    "ratio_diff": -prev['val'] / totals[d1] if totals[d1] > 0 else 0,
                     "is_new": False,
                     "is_liquidation": True
                 })
@@ -317,6 +319,7 @@ def generate_html():
                     "d2": d2,
                     "qty_diff": qty_diff,
                     "trade_val": trade_val,
+                    "ratio_diff": trade_val / totals[d2] if totals[d2] > 0 else 0,
                     "is_new": False,
                     "is_liquidation": False
                 })
@@ -727,6 +730,7 @@ def generate_html():
                     if (y2 !== undefined) {{
                         markPointData.push({{
                             coord: [d2Index, y2],
+                            name: arr.name,
                             symbol: rightArrowPath,
                             symbolSize: [46, 6],
                             symbolOffset: [-barHalfPx - 23, 0],
@@ -745,6 +749,7 @@ def generate_html():
                     if (y1 !== undefined) {{
                         markPointData.push({{
                             coord: [d1Index, y1],
+                            name: arr.name,
                             symbol: rightArrowPath,
                             symbolSize: [46, 6],
                             symbolOffset: [barHalfPx + 23, 0],
@@ -762,25 +767,31 @@ def generate_html():
                 }} else {{
                     if (y1 !== undefined && y2 !== undefined) {{
                         let action = arr.qty_diff > 0 ? "加仓" : "减仓";
+                        let ratioStr = (arr.ratio_diff > 0 ? "+" : "") + (arr.ratio_diff * 100).toFixed(1) + "%";
                         let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1);
+                        
                         let labelText = action + " " + Math.abs(arr.qty_diff) + "股\\n" + tradeValStr;
+                        let ratioText = action + " " + ratioStr;
+                        let finalDisplay = showDetails ? labelText : ratioText;
+                        
                         let lineColor = arr.qty_diff > 0 ? "#a43a3a" : "#4b6a53";
                         
                         markLineData.push([
                             {{
                                 coord: [arr.d1, y1],
-                                name:arr.name,
+                                name: arr.name,
                                 lineStyle: {{ color: lineColor, width: 2, type: 'dashed' }}
                             }},
                             {{
                                 coord: [arr.d2, y2],
-                                value: labelText,
+                                value: finalDisplay,
+                                name: arr.name,
                                 label: {{ 
                                     show: true, 
                                     position: 'middle', 
                                     formatter: function(params) {{
-                                        console.log(params.data);
-                                        return params.value || labelText;
+                                        let name = params.name || params.data.name || "";
+                                        return (name ? name + "\\n" : "") + (params.value || finalDisplay);
                                     }}, 
                                     backgroundColor: "rgba(255, 252, 245, 0.95)", 
                                     borderColor: lineColor,
@@ -890,7 +901,7 @@ def generate_html():
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
             series: [{{
                 type: 'pie',
-                radius: ['36%', '61%'],
+                radius: ['20%', '46%'],
                 avoidLabelOverlap: true,
                 itemStyle: {{ borderRadius: 10, borderColor: '#fffcf5', borderWidth: 2 }},
                 label: {{ 
@@ -938,7 +949,7 @@ def generate_html():
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
             series: [{{
                 type: 'pie',
-                radius: '61%',
+                radius: '46%',
                 data: assetData,
                 itemStyle: {{ borderColor: '#fffcf5', borderWidth: 1 }},
                 label: {{
