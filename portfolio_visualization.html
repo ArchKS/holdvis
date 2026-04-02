@@ -285,7 +285,7 @@
                     let name = params.data.name || params.seriesName;
                     let qtyStr = params.data.qty ? '<br/>持股: ' + params.data.qty : '';
                     let ratioStr = params.data.ratio ? '<br/>占比: ' + (params.data.ratio * 100).toFixed(1) + '%' : '';
-                    return name + '<br/>市值: ' + params.data.value + '万' + qtyStr + ratioStr;
+                    return name + '<br/>市值: ' + params.data.value + qtyStr + ratioStr;
                 }
             },
             legend: { show: false }, // Hide as names are Rank 1, 2...
@@ -442,9 +442,9 @@
                     if (y1 !== undefined && y2 !== undefined) {
                         let action = arr.qty_diff > 0 ? "加仓" : "减仓";
                         let ratioStr = (arr.ratio_diff > 0 ? "+" : "") + (arr.ratio_diff * 100).toFixed(1) + "%";
-                        let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1);
+                        let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1) +"万";
                         
-                        let labelText = action + " " + Math.abs(arr.qty_diff) + "股\n" + tradeValStr;
+                        let labelText = action + " " + Math.abs(arr.qty_diff) + "股\n" + tradeValStr.replace('万万','万');
                         let ratioText = action + " " + ratioStr;
                         let finalDisplay = showDetails ? labelText : ratioText;
                         
