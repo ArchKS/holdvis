@@ -331,7 +331,7 @@ def generate_html():
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&display=swap');
             body {{ font-family: 'Noto Serif SC', serif; padding: 40px 20px; background-color: #fbfaf7; color: #2c251d; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmYmZhZjciLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSJyZ2JhKDAsMCwwLDAuMDMpIi8+PC9zdmc+'); }}
-            .container {{ max-width: 1400px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02), 0 4px 15px rgba(0,0,0,0.05); border: 2px solid #8c7355; position: relative; }}
+            .container {{ margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02), 0 4px 15px rgba(0,0,0,0.05); border: 2px solid #8c7355; position: relative; }}
             .container::before {{ content: ""; position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px; border: 1px solid #d4c2a5; pointer-events: none; }}
             h2, h3 {{ color: #8c2620; font-weight: 900; text-align: center; border-bottom: 2px solid #8c2620; padding-bottom: 10px; margin-bottom: 30px; letter-spacing: 2px; }}
             h3 {{ color: #3b3126; border-bottom: 1px solid #8c7355; margin-top: 50px; font-size: 1.4em; }}
@@ -416,9 +416,6 @@ def generate_html():
 
         <div class="chart-row">
             <div id="marketChart" class="chart-container"></div>
-        </div>
-
-        <div class="chart-row">
             <div id="assetChart" class="chart-container"></div>
         </div>
     </div>
@@ -765,7 +762,7 @@ def generate_html():
                 }} else {{
                     if (y1 !== undefined && y2 !== undefined) {{
                         let action = arr.qty_diff > 0 ? "加仓" : "减仓";
-                        let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1) + "万";
+                        let tradeValStr = (arr.trade_val > 0 ? "+" : "") + arr.trade_val.toFixed(1);
                         let labelText = action + " " + Math.abs(arr.qty_diff) + "股\\n" + tradeValStr;
                         let lineColor = arr.qty_diff > 0 ? "#a43a3a" : "#4b6a53";
                         
@@ -869,11 +866,13 @@ def generate_html():
                     let percent = params.percent;
                     let details = marketDetails[market] || [];
                     
-                    let res = `<div style="border-bottom: 1px solid rgba(255,255,255,.3); font-weight: bold; margin-bottom: 5px; padding-bottom: 5px;">${{market}}: ${{total}}万 (${{percent}}%)</div>`;
+                    let valStr = showDetails ? total + "万 " : "";
+                    let res = `<div style="border-bottom: 1px solid rgba(255,255,255,.3); font-weight: bold; margin-bottom: 5px; padding-bottom: 5px;">${{market}}: ${{valStr}}(${{percent}}%)</div>`;
                     details.forEach(item => {{
+                        let itemValStr = showDetails ? item.value + "万 " : "";
                         res += `<div style="display: flex; justify-content: space-between; gap: 20px; font-size: 12px; margin-top: 2px;">
                                     <span>${{item.name}}</span>
-                                    <span>${{item.value}}万 (${{item.percent}}%)</span>
+                                    <span>${{itemValStr}}(${{item.percent}}%)</span>
                                 </div>`;
                     }});
                     return res;
@@ -884,25 +883,28 @@ def generate_html():
                 textStyle: {{ color: '#3b3126' }},
                 formatter: function(name) {{
                     let item = marketData.find(d => d.name === name);
-                    return name + (item ? ' (' + item.value + '万)' : '');
+                    if (!item) return name;
+                    return showDetails ? (name + ' (' + item.value + '万)') : name;
                 }}
             }},
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
             series: [{{
                 type: 'pie',
-                radius: ['40%', '75%'],
+                radius: ['36%', '61%'],
                 avoidLabelOverlap: true,
                 itemStyle: {{ borderRadius: 10, borderColor: '#fffcf5', borderWidth: 2 }},
                 label: {{ 
                     show: true, 
                     position: 'outside', 
-                    formatter: '{{b}}\\n{{c}}万 ({{d}}%)',
+                    formatter: function(params) {{
+                        return showDetails ? (params.name + '\\n' + params.value + '万 (' + params.percent + '%)') : (params.name + '\\n(' + params.percent + '%)');
+                    }},
                     color: '#3b3126',
                     fontWeight: 'bold',
-                    fontSize: 12
+                    fontSize: 16
                 }},
                 labelLine: {{ show: true, length: 15, length2: 10 }},
-                emphasis: {{ label: {{ show: true, fontSize: 14, fontWeight: 'bold' }} }},
+                emphasis: {{ label: {{ show: true, fontSize: 18, fontWeight: 'bold' }} }},
                 data: marketData
             }}]
         }});
@@ -917,29 +919,37 @@ def generate_html():
                     saveAsImage: {{ title: '保存', name: '资产持仓占比', pixelRatio: 2, iconStyle: {{ borderColor: '#8c2620' }} }}
                 }}
             }},
-            tooltip: {{ trigger: 'item', formatter: '{{b}}: {{c}}万 ({{d}}%)' }},
+            tooltip: {{ 
+                trigger: 'item', 
+                formatter: function(params) {{
+                    return showDetails ? (params.name + ': ' + params.value + '万 (' + params.percent + '%)') : (params.name + ': (' + params.percent + '%)');
+                }}
+            }},
             legend: {{ 
                 bottom: '0', 
                 type: 'scroll', 
                 textStyle: {{ color: '#3b3126' }},
                 formatter: function(name) {{
                     let item = assetData.find(d => d.name === name);
-                    return name + (item ? ' (' + item.value + '万)' : '');
+                    if (!item) return name;
+                    return showDetails ? (name + ' (' + item.value + '万)') : name;
                 }}
             }},
             color: ['#8c2620', '#4b6a53', '#c07844', '#5c4e3e', '#8c7355', '#3b3126', '#a43a3a', '#667863', '#d4c2a5', '#e3d9c6'],
             series: [{{
                 type: 'pie',
-                radius: '75%',
+                radius: '61%',
                 data: assetData,
                 itemStyle: {{ borderColor: '#fffcf5', borderWidth: 1 }},
                 label: {{
                     show: true,
                     position: 'outside',
-                    formatter: '{{b}}\\n{{c}}万 ({{d}}%)',
+                    formatter: function(params) {{
+                        return showDetails ? (params.name + '\\n' + params.value + '万 (' + params.percent + '%)') : (params.name + '\\n(' + params.percent + '%)');
+                    }},
                     color: '#3b3126',
                     fontWeight: '600',
-                    fontSize: 11
+                    fontSize: 14
                 }},
                 labelLine: {{ show: true, length: 15, length2: 10 }},
                 emphasis: {{ itemStyle: {{ shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'blue' }} }}
