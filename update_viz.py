@@ -997,7 +997,7 @@ def generate_html():
                 displayCols.forEach(c => {{
                     const td = document.createElement('td');
                     let val = row[c];
-                    if (typeof val === 'number') val = val.toFixed(2);
+                    if (typeof val === 'number' && c !== '持有数量') val = val.toFixed(1);
                     td.innerText = val;
                     if (numericCols.includes(c)) td.className = 'text-right';
                     
