@@ -772,6 +772,7 @@ def generate_html():
                         markLineData.push([
                             {{
                                 coord: [arr.d1, y1],
+                                name:arr.name,
                                 lineStyle: {{ color: lineColor, width: 2, type: 'dashed' }}
                             }},
                             {{
@@ -780,7 +781,10 @@ def generate_html():
                                 label: {{ 
                                     show: true, 
                                     position: 'middle', 
-                                    formatter: '{{c}}', 
+                                    formatter: function(params) {{
+                                        console.log(params.data);
+                                        return params.value || labelText;
+                                    }}, 
                                     backgroundColor: "rgba(255, 252, 245, 0.95)", 
                                     borderColor: lineColor,
                                     borderWidth: 1,
